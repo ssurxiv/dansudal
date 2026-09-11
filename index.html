@@ -27,7 +27,7 @@
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    padding: clamp(16px, 5vw, 24px) clamp(14px, 5vw, 20px) 48px;
+    padding: clamp(16px, 5vw, 24px) clamp(14px, 5vw, 20px) 96px;
     background: var(--paper);
     color: var(--ink);
     font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, sans-serif;
@@ -35,6 +35,20 @@
     line-height: 1.6;
   }
   main { max-width: 420px; margin: 0 auto; }
+
+  /* 실 교체 등으로 위 내용 높이가 바뀌어도 안내문·푸터는 화면
+     아래에 고정해 흔들리지 않게 합니다. */
+  .bottom-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--paper);
+    border-top: 1px solid var(--line);
+    padding: 10px clamp(14px, 5vw, 20px) 12px;
+  }
+  .bottom-bar-inner { max-width: 420px; margin: 0 auto; }
+  .bottom-bar footer { margin-top: 0; padding-top: 0; border-top: none; }
 
   .page-head {
     display: flex;
@@ -104,7 +118,7 @@
 
   .stats {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
     margin-bottom: 20px;
   }
@@ -118,17 +132,22 @@
   }
   .stat dt { font-size: 12px; color: var(--muted); margin: 0; }
   .stat dd {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
     font-size: clamp(15px, 4.5vw, 19px);
     font-weight: 600;
     margin: 2px 0 0;
     white-space: nowrap;
   }
-
-  /* 아주 좁은 화면에서는 4칸을 억지로 욱여넣지 않고 2x2 로 접습니다. */
-  @media (max-width: 360px) {
-    .stats { grid-template-columns: repeat(2, 1fr); }
+  .stat dd input[type="number"] {
+    width: 3.4em;
+    padding: 2px 4px;
+    font: inherit;
+    font-weight: 600;
+    text-align: center;
   }
-
   .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
   button {
     flex: 1 1 auto;
@@ -149,8 +168,6 @@
   #wear { border-color: var(--yarn); color: var(--yarn); }
   #reset { color: var(--muted); }
 
-  .target { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
-  .target label { font-size: 14px; color: var(--muted); }
   input[type="number"] {
     width: 88px;
     padding: 9px 10px;
@@ -161,6 +178,42 @@
     border-radius: 10px;
   }
   input:focus-visible { outline: 2px solid var(--yarn); outline-offset: 1px; }
+
+  /* 실 창고 = 책장 선반. 픽셀아트 톤에 맞춰 그레이디언트 없이 flat
+     색 + 굵은 선반 판자 하나로만 단순하게 표현합니다. */
+  .stash {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+    margin: 0 0 16px;
+  }
+  .stash .hint { margin: 0 0 8px; }
+  .stash-grid {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-bottom: 10px;
+    border-bottom: 4px solid #a3714a;
+  }
+  .swatch {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    min-width: 0;
+    padding: 0;
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+  }
+  .swatch.recent { border-color: var(--yarn); border-width: 3px; }
+  .swatch:focus-visible { outline: 2px solid var(--yarn); outline-offset: 3px; }
+  .stash-divider {
+    flex: none;
+    align-self: stretch;
+    width: 1px;
+    background: var(--line);
+  }
 
   .hint { font-size: 13px; color: var(--muted); margin: 0 0 4px; }
   footer {
@@ -201,33 +254,47 @@
   </div>
 
   <dl class="stats">
-    <div class="stat"><dt>단수</dt><dd id="rows">0 / 20</dd></div>
-    <div class="stat"><dt>푼 단</dt><dd id="ripped">0</dd></div>
-    <div class="stat"><dt>바닥</dt><dd id="pile">0</dd></div>
-    <div class="stat"><dt>실뭉치</dt><dd id="ball">12</dd></div>
+    <div class="stat">
+      <dt>뜬 단수/총 단수</dt>
+      <dd>
+        <span id="rows">0</span> /
+        <input type="number" id="target" value="20" min="1" max="999" required />
+      </dd>
+    </div>
+    <div class="stat">
+      <dt>쓴 볼 수/보유 볼 수</dt>
+      <dd>
+        <span id="usedBall">0</span> /
+        <input type="number" id="totalBall" min="0" max="999" placeholder="-" />
+      </dd>
+    </div>
   </dl>
-
-  <div class="target">
-    <label for="target">목표 단수</label>
-    <input type="number" id="target" value="20" min="1" max="999" />
-  </div>
 
   <div class="controls">
     <button id="add">한 단 떴어요</button>
     <button id="rip">한 단 풀기</button>
     <button id="wind">실 감기</button>
+    <button id="swap" type="button">실 교체</button>
     <button id="wear" hidden>입어보기</button>
     <button id="reset" type="button">초기화</button>
   </div>
 
-  <p class="hint">스페이스바로 한 단 추가, 백스페이스로 한 단 풀기, W로 실 감기</p>
-
-  <footer>
-    단수달 &copy; 2026
-    <a href="https://instagram.com/tteoboja_0" rel="noopener">@tteoboja_0</a>.
-    무단 재배포를 금합니다.
-  </footer>
+  <div class="stash" id="stash" hidden>
+    <p class="hint">새로 쓸 실 색을 골라주세요</p>
+    <div class="stash-grid" id="stashGrid"></div>
+  </div>
 </main>
+
+<div class="bottom-bar">
+  <div class="bottom-bar-inner">
+    <p class="hint">스페이스바로 한 단 추가, 백스페이스로 한 단 풀기, W로 실 감기</p>
+    <footer>
+      단수달 &copy; 2026
+      <a href="https://instagram.com/tteoboja_0" rel="noopener">@tteoboja_0</a>.
+      무단 재배포를 금합니다.
+    </footer>
+  </div>
+</div>
 
 <script type="module" src="./src/main.js"></script>
 </body>

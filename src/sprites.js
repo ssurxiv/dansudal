@@ -37,6 +37,41 @@ export const NEEDLE = {
   h: '#e0574f'   // 하트 마개
 };
 
+function hexToRgb(hex) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex ?? '');
+  if (!m) return { r: 154, g: 208, b: 192 }; // 못 읽으면 원래 민트색(YARN.y)로.
+  return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
+}
+
+function rgbToHex(r, g, b) {
+  const h = (n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+  return `#${h(r)}${h(g)}${h(b)}`;
+}
+
+/** amt>0 이면 흰색 쪽으로, amt<0 이면 검은색 쪽으로 그만큼 섞습니다. */
+function shade(hex, amt) {
+  const { r, g, b } = hexToRgb(hex);
+  const target = amt >= 0 ? 255 : 0;
+  const p = Math.abs(amt);
+  const mix = (c) => c + (target - c) * p;
+  return rgbToHex(mix(r), mix(g), mix(b));
+}
+
+/**
+ * 실 창고에서 고른 색 하나(base)로부터 실 스프라이트용 4색
+ * (외곽선/실/코 무늬/반짝임)을 만들어냅니다. 기존 YARN 팔레트의
+ * k/y/d/F 색 관계(외곽선은 크게 어둡게, 코 무늬는 살짝 어둡게,
+ * 반짝임은 크게 밝게)를 그대로 흉내냅니다.
+ */
+export function paletteFor(base) {
+  return {
+    k: shade(base, -0.55),
+    y: base,
+    d: shade(base, -0.18),
+    F: shade(base, 0.7)
+  };
+}
+
 /* ── 고정 좌표 ────────────────────────────────────────────── */
 
 export const LEFT_PIVOT = [8, 22];

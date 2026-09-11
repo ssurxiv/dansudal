@@ -48,6 +48,19 @@ export function line(buf, x0, y0, x1, y1, ch) {
 }
 
 /**
+ * 스프라이트에서 [fromY, toY] 구간의 행만 남기고 나머지는 지운
+ * 복사본을 만듭니다. 같은 스프라이트를 실 색 구간별로 나눠 각기
+ * 다른 팔레트로 블릿할 때 씁니다.
+ */
+export function sliceRows(sprite, fromY, toY) {
+  const out = [];
+  for (let y = 0; y < SIZE; y++) {
+    out.push(y >= fromY && y <= toY ? sprite[y] : EMPTY_ROW);
+  }
+  return out;
+}
+
+/**
  * 스프라이트 한 장을 캔버스에 찍습니다.
  * palette 에 없는 문자와 '.' 은 투명으로 건너뜁니다.
  */

@@ -4,7 +4,7 @@
  * https://instagram.com/tteoboja_0
  */
 
-import { SIZE, blit } from './pixel.js';
+import { SIZE, blit, sliceRows } from './pixel.js';
 import * as S from './sprites.js';
 import { STATES, ENTRY } from './states.js';
 
@@ -23,6 +23,80 @@ function spreadHold(top) {
 }
 
 /**
+ * 실뭉치·바닥·가닥처럼 "지금 쓰는 실 색 하나"만 필요한 실용 레이어의
+ * 팔레트. 색 구간(colorSegments)까지 따질 필요 없이 늘 최근 색입니다.
+ */
+function currentPalette(c) {
+  return S.paletteFor(c.currentColor);
+}
+
+/**
+ * 뜨개감(knit)은 실 교체가 있었으면 knitLength 구간별로 색이 달라져야
+ * 하니, 한 스프라이트를 색 구간 수만큼 잘라 각기 다른 팔레트로 겹쳐
+ * 그릴 레이어 목록을 만듭니다.
+ */
+/**
+ * KNIT_TOP(맨 위, 고정)은 바늘·손이 항상 있는 자리라 실제로는
+ * "가장 최근에 뜬 코"이고, 아래쪽 움직이는 테두리가 캐스트온(가장
+ * 먼저 뜬 코)입니다 — 새 단을 뜨면 반짝임도 늘 KNIT_TOP+1 에서
+ * 터지는 게 그 증거입니다. 그래서 최근 색이 위로, 오래된 색이
+ * 아래로 쌓이도록 knitLength 를 뒤집어 배치합니다.
+ */
+function knitLayers(c, flash) {
+  if (c.knitLength <= 0) return [];
+  const full = S.knit(c.knitLength, flash);
+  const segs = c.segmentsUpTo(c.knitLength);
+  const length = c.knitLength;
+  const layers = [
+    // 바늘 쪽(맨 위, 고정) 테두리는 실제로 떠진 가장 최근 색.
+    [sliceRows(full, S.KNIT_TOP, S.KNIT_TOP), S.paletteFor(segs[segs.length - 1].color)]
+  ];
+  segs.forEach((seg) => {
+    const fromY = S.KNIT_TOP + length - seg.to + 1;
+    const toY = S.KNIT_TOP + length - seg.from;
+    layers.push([sliceRows(full, fromY, toY), S.paletteFor(seg.color)]);
+  });
+  // 캐스트온 쪽(맨 아래, 움직이는) 테두리는 처음 썼던 색.
+  const bottomY = Math.min(S.KNIT_TOP + length + 1, 30);
+  layers.push([sliceRows(full, bottomY, bottomY), S.paletteFor(segs[0].color)]);
+  return layers;
+}
+
+/**
+ * 완성 후에는 knitLength 가 늘 MAX_KNIT 로 고정되니, colorSegments 를
+ * 0~MAX_KNIT 비율로 매핑해 완성품·목에 두른 스카프에도 실 교체
+ * 이력이 줄무늬로 남게 합니다. knitLayers 와 같은 방향(최근 색이
+ * 위)으로 맞추려고 비율을 뒤집어서 씁니다.
+ */
+function colorForFraction(c, frac) {
+  const unit = Math.round((1 - frac) * S.MAX_KNIT);
+  let color = c.colorSegments[0].color;
+  for (const seg of c.colorSegments) {
+    if (seg.from <= unit) color = seg.color;
+    else break;
+  }
+  return color;
+}
+
+function stripedRows(c, sprite, fromY, toY) {
+  const span = toY - fromY;
+  const layers = [];
+  for (let y = fromY; y <= toY; y++) {
+    const frac = span <= 0 ? 1 : (y - fromY) / span;
+    layers.push([sliceRows(sprite, y, y), S.paletteFor(colorForFraction(c, frac))]);
+  }
+  return layers;
+}
+
+function pieceLayers(c, top) {
+  return stripedRows(c, S.finishedPiece(top), top, top + 7);
+}
+
+function scarfLayers(c) {
+  return stripedRows(c, S.wornScarf(), 19, 28);
+}
+
+/**
  * 자세 하나는 캐릭터 앞쪽에 그릴 레이어를 정합니다.
  * 뒤쪽(꼬리·몸통·머리)은 모든 자세가 공유합니다.
  */
@@ -30,12 +104,12 @@ const POSES = {
   holdWork(c) {
     return {
       behind: [
-        [S.feedStrand(c.knitLength, c.ball), S.YARN],
-        [S.floorBall(c.ball), S.YARN]
+        [S.feedStrand(c.knitLength, c.ball), currentPalette(c)],
+        [S.floorBall(c.ball), currentPalette(c)]
       ],
       front: [
         [S.needles(1, 0), S.NEEDLE],
-        [S.knit(c.knitLength, false), S.YARN],
+        ...knitLayers(c, false),
         [S.paws(7, 21, 21, 21), S.BODY]
       ]
     };
@@ -44,12 +118,12 @@ const POSES = {
   knitting(c, frame) {
     return {
       behind: [
-        [S.feedStrand(c.knitLength, c.ball), S.YARN],
-        [S.floorBall(c.ball), S.YARN]
+        [S.feedStrand(c.knitLength, c.ball), currentPalette(c)],
+        [S.floorBall(c.ball), currentPalette(c)]
       ],
       front: [
         [S.needles(frame, 0), S.NEEDLE],
-        [S.knit(c.knitLength, c.flash), S.YARN],
+        ...knitLayers(c, c.flash),
         [S.paws(7, 21, 21, 21), S.BODY]
       ]
     };
@@ -59,12 +133,12 @@ const POSES = {
     const step = Math.min(frame, 1);
     return {
       behind: [
-        [S.feedStrand(c.knitLength, c.ball), S.YARN],
-        [S.floorBall(c.ball), S.YARN]
+        [S.feedStrand(c.knitLength, c.ball), currentPalette(c)],
+        [S.floorBall(c.ball), currentPalette(c)]
       ],
       front: [
         [S.needles(1, step), S.NEEDLE],
-        [S.knit(c.knitLength, false), S.YARN],
+        ...knitLayers(c, false),
         [S.paws(7, 21, 21 + step * 2, 21 - step * 2), S.BODY]
       ]
     };
@@ -74,13 +148,13 @@ const POSES = {
     const [rx, ry] = S.yanks[frame % S.yanks.length];
     return {
       behind: [
-        [S.feedStrand(c.knitLength, c.ball), S.YARN],
-        [S.floorBall(c.ball), S.YARN]
+        [S.feedStrand(c.knitLength, c.ball), currentPalette(c)],
+        [S.floorBall(c.ball), currentPalette(c)]
       ],
       front: [
         [S.needles(1, 2), S.NEEDLE],
-        [S.knit(c.knitLength, false), S.YARN],
-        [S.pulledYarn(rx, ry), S.YARN],
+        ...knitLayers(c, false),
+        [S.pulledYarn(rx, ry), currentPalette(c)],
         [S.paws(7, 21, rx, ry), S.BODY]
       ]
     };
@@ -93,20 +167,20 @@ const POSES = {
     if (frame < 3) {
       return {
         behind: [
-          [S.feedStrand(c.knitLength, c.ball), S.YARN],
-          [S.floorBall(c.ball), S.YARN]
+          [S.feedStrand(c.knitLength, c.ball), currentPalette(c)],
+          [S.floorBall(c.ball), currentPalette(c)]
         ],
         front: [
           [S.needles(1, 0), S.NEEDLE],
-          [S.knit(c.knitLength, true), S.YARN],
+          ...knitLayers(c, true),
           [S.paws(7, 21, 21, 21), S.BODY]
         ]
       };
     }
     return {
-      behind: [[S.floorBall(c.ball), S.YARN]],
+      behind: [[S.floorBall(c.ball), currentPalette(c)]],
       front: [
-        [S.finishedPiece(20), S.YARN],
+        ...pieceLayers(c, 20),
         [S.bow(20), S.NEEDLE],
         [S.paws(7, 21, 21, 21), S.BODY],
         [frame === 3 ? S.sparkleBurst() : S.sparkles(frame), S.SPARK]
@@ -118,9 +192,9 @@ const POSES = {
   showoff(c, frame) {
     const top = 19 - ((frame % 8 < 4) ? 0 : 1);
     return {
-      behind: [[S.floorBall(c.ball), S.YARN]],
+      behind: [[S.floorBall(c.ball), currentPalette(c)]],
       front: [
-        [S.finishedPiece(top), S.YARN],
+        ...pieceLayers(c, top),
         [S.bow(top), S.NEEDLE],
         [S.sparkles(frame), S.SPARK],
         ...spreadHold(top)
@@ -131,9 +205,9 @@ const POSES = {
   /* 입어보기 예비 동작 — 반짝임이 몰아치는 짧은 전환. */
   wrapping(c, frame) {
     return {
-      behind: [[S.floorBall(c.ball), S.YARN]],
+      behind: [[S.floorBall(c.ball), currentPalette(c)]],
       front: [
-        [S.finishedPiece(19), S.YARN],
+        ...pieceLayers(c, 19),
         [S.bow(19), S.NEEDLE],
         [S.sparkles(frame * 2), S.SPARK],
         ...spreadHold(19)
@@ -147,9 +221,9 @@ const POSES = {
     if (frame === 0) return POSES.holdWork(c);
     return {
       behind: [
-        [S.asideKnit, S.YARN],
+        [S.asideKnit, currentPalette(c)],
         [S.asideNeedle(), S.NEEDLE],
-        [S.floorBall(c.ball), S.YARN]
+        [S.floorBall(c.ball), currentPalette(c)]
       ],
       front: [
         [S.paws(6, 25, 20, 25), S.BODY]
@@ -161,9 +235,9 @@ const POSES = {
      옆에서 은은하게 떠오릅니다. */
   wearing(c, frame) {
     return {
-      behind: [[S.floorBall(c.ball), S.YARN]],
+      behind: [[S.floorBall(c.ball), currentPalette(c)]],
       front: [
-        [S.wornScarf(), S.YARN],
+        ...scarfLayers(c),
         [S.paws(7, 21, 21, 21), S.BODY],
         [S.hearts(frame), S.NEEDLE]
       ]
@@ -177,10 +251,10 @@ const POSES = {
     const [lx, ly] = held.leftPaw;
     return {
       behind: [
-        [S.asideKnit, S.YARN],
+        [S.asideKnit, currentPalette(c)],
         [S.asideNeedle(), S.NEEDLE],
-        [S.windStrand(c.ball), S.YARN],
-        [held.sprite, S.YARN]
+        [S.windStrand(c.ball), currentPalette(c)],
+        [held.sprite, currentPalette(c)]
       ],
       front: [
         [S.paws(lx, ly, rx, ry), S.BODY]
@@ -220,12 +294,18 @@ const CONDITIONS = {
 
 const FINISHED_STATES = new Set(['complete', 'showoff', 'wrapping', 'wearing']);
 
+/* 벗고 다시 자랑할 때 매번 같은 말이면 심심하니 랜덤으로 고릅니다. */
+const SHOWOFF_LINES = ['예쁘죠?', '뿌듯하다!', '짜잔!', '완전 마음에 들어!', '이야, 잘 됐다!'];
+const pickLine = (lines) => lines[Math.floor(Math.random() * lines.length)];
+
 export class Companion {
   constructor(canvas, options = {}) {
     this.ctx = canvas.getContext('2d');
     this.ctx.imageSmoothingEnabled = false;
 
-    // 모델. 실 총량은 knitLength + pile + ball 로 항상 보존됩니다.
+    // 모델. 실 총량은 knitLength + pile + ball 로 보존되지만, 실
+    // 교체(swapYarn) 시점에는 새 실뭉치가 열리는 거라 ball 이 다시
+    // 가득 채워집니다 — 그 사이 구간에서만 보존됩니다.
     this.target = options.target ?? 20;
     this.rows = 0;
     this.ripped = 0;
@@ -233,6 +313,17 @@ export class Companion {
     this.pile = 0;
     this.initialBall = options.yarn ?? 12;
     this.ball = this.initialBall;
+
+    // 다 쓴 볼 수는 뜨개 진행량에서 계산하지 않고, 실물 실뭉치를 다
+    // 썼을 때 사용자가 직접 "실 교체"로 올리는 수동 카운터입니다.
+    this.initialColor = options.color ?? null;
+    this.currentColor = this.initialColor;
+    this.usedBall = 0;
+
+    // 실을 교체한 knitLength 지점을 경계로 색 구간을 기록합니다.
+    // 예: [{from:0,color:A},{from:4,color:B}] → 1~4단은 A, 5단부터는 B.
+    // 바닥·실뭉치는 구간을 나누지 않고 늘 currentColor 하나로 단순화합니다.
+    this.colorSegments = [{ from: 0, color: this.initialColor }];
 
     this.flash = false;
     this.blink = false;
@@ -255,6 +346,8 @@ export class Companion {
       ripped: this.ripped,
       pile: this.pile,
       ball: this.ball,
+      usedBall: this.usedBall,
+      currentColor: this.currentColor,
       percent: Math.min(100, Math.round((this.rows / this.target) * 100)),
       finished: this.rows >= this.target,
       wearing: this.state === 'wearing' || this.state === 'wrapping'
@@ -263,6 +356,19 @@ export class Companion {
 
   visualLength() {
     return Math.min(S.MAX_KNIT, Math.round((this.rows / this.target) * S.MAX_KNIT));
+  }
+
+  /** colorSegments 를 length 까지로 잘라 [{from,to,color}] 로 돌려줍니다. */
+  segmentsUpTo(length) {
+    const segs = this.colorSegments;
+    const out = [];
+    for (let i = 0; i < segs.length; i++) {
+      const from = segs[i].from;
+      if (from >= length) break;
+      const to = i + 1 < segs.length ? Math.min(segs[i + 1].from, length) : length;
+      out.push({ from, to, color: segs[i].color });
+    }
+    return out;
   }
 
   /* ── 조작 ─────────────────────────────────────────────── */
@@ -281,9 +387,9 @@ export class Companion {
       grew = true;
     }
     if (!grew && this.knitLength < want && this.ball <= 0) {
-      this.onStatus('실뭉치가 비었습니다. 감기부터 하세요');
+      this.onStatus('실뭉치가 비었습니다. 실을 감아주세요.');
     } else {
-      this.onStatus(this.rows >= this.target ? '목표 달성' : '뜨는 중');
+      this.onStatus(this.rows >= this.target ? '다 떴다!' : '뜨는 중');
     }
     this.emit();
     this.enter(ENTRY.knit);
@@ -295,7 +401,7 @@ export class Companion {
       return;
     }
     if (this.pile >= S.MAX_PILE) {
-      this.onStatus('바닥이 꽉 찼습니다. 감기부터 하세요');
+      this.onStatus('바닥이 꽉 찼습니다. 실을 감아주세요.');
       return;
     }
     this.onStatus('한 단 푸는 중');
@@ -309,6 +415,21 @@ export class Companion {
     }
     this.onStatus('실뭉치를 감는 중');
     this.enter(ENTRY.wind);
+  }
+
+  /** 실물 실뭉치를 다 써서 실 창고에서 새 색을 골라 교체했을 때. */
+  swapYarn(color) {
+    this.usedBall += 1;
+    this.currentColor = color;
+    const last = this.colorSegments[this.colorSegments.length - 1];
+    if (last.from === this.knitLength) {
+      last.color = color; // 뜨기 전에 또 바꾸면 그 자리 색만 갱신.
+    } else {
+      this.colorSegments.push({ from: this.knitLength, color });
+    }
+    this.ball = this.initialBall; // 새 실뭉치라 다시 가득 채웁니다.
+    this.onStatus('실을 교체했습니다');
+    this.emit();
   }
 
   setTarget(value) {
@@ -342,7 +463,7 @@ export class Companion {
 
   takeOff() {
     if (this.state !== 'wearing') return;
-    this.onStatus('다시 자랑하는 중');
+    this.onStatus(pickLine(SHOWOFF_LINES));
     this.enter('showoff');
   }
 
@@ -353,6 +474,9 @@ export class Companion {
     this.knitLength = 0;
     this.pile = 0;
     this.ball = this.initialBall;
+    this.usedBall = 0;
+    this.currentColor = this.initialColor;
+    this.colorSegments = [{ from: 0, color: this.initialColor }];
     this.onStatus('초기화했습니다');
     this.enter('idle');
   }
@@ -463,6 +587,6 @@ export class Companion {
 
     pose.front.forEach(([sprite, palette]) => blit(ctx, sprite, palette));
 
-    blit(ctx, S.pile(this.pile), S.YARN);
+    blit(ctx, S.pile(this.pile), S.paletteFor(this.currentColor));
   }
 }
