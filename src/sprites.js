@@ -86,7 +86,7 @@ export const SHOULDER_R = [21, 21];
 
 /* ── 몸 ───────────────────────────────────────────────────── */
 
-export const tail = pad({
+const TAIL_ROWS = {
   24: '.....oooo.......................',
   25: '....obbbo.......................',
   26: '...obbbbo.......................',
@@ -94,7 +94,22 @@ export const tail = pad({
   28: '..obbbbbo.......................',
   29: '...obbbbo.......................',
   30: '....ooooo.......................'
-});
+};
+
+/**
+ * 기본은 offset 0(고정 위치). 착용 중 신남을 표현할 땐 위아래로
+ * 1px 씩 흔들리도록 offset 을 옮겨 찍습니다.
+ */
+export function tail(offset = 0) {
+  if (offset === 0) return pad(TAIL_ROWS);
+  const buf = buffer();
+  Object.entries(TAIL_ROWS).forEach(([y, row]) => {
+    for (let x = 0; x < row.length; x++) {
+      if (row[x] !== '.') put(buf, x, Number(y) + offset, row[x]);
+    }
+  });
+  return pad(buf);
+}
 
 export const body = pad({
   20: '...........obbbbbbbbo...........',
@@ -174,10 +189,11 @@ export const faces = {
     16: '..............mmll..............'
   })],
 
-  // 입꼬리 대신 눈을 ^ 모양으로 접어 뿌듯함을 표현합니다.
+  // 입꼬리 대신 눈을 접어 뿌듯함을 표현합니다. ㄷ을 시계방향으로
+  // 90도 돌린(= 위는 막히고 아래가 트인 ⊓자) 모양입니다.
   // (README 원칙: 이 캐릭터는 입보다 눈·귀로 표현합니다.)
   proud: [EYE_COVER, pad({
-    12: '..........e..........e..........',
+    12: '.........eee........eee.........',
     13: '.........e.e........e.e.........'
   })],
 
@@ -190,10 +206,26 @@ export const faces = {
 };
 
 export const bang = pad({
-  2: '............................o...',
-  3: '............................o...',
-  5: '............................o...'
+  2: '..............................h.',
+  3: '..............................h.',
+  5: '..............................h.'
 });
+
+/**
+ * 한 단 풀기 중 오른쪽 바늘을 잠깐 귀 뒤에 꽂아둔 모습. 렌더 순서상
+ * 귀·머리보다 먼저(behind) 그려서 끝만 삐죽 나오고 나머지는 가려지게
+ * 합니다 — 화면 밖으로 미끄러져 사라지던 것보다 자연스럽습니다.
+ */
+export function earNeedle() {
+  const buf = buffer();
+  const base = [23, 5];
+  const tip = [28, 1];
+  line(buf, base[0], base[1] + 1, tip[0], tip[1] + 1, 'g');
+  line(buf, base[0], base[1] - 1, tip[0], tip[1] - 1, 'g');
+  line(buf, base[0], base[1], tip[0], tip[1], 'n');
+  put(buf, tip[0], tip[1], 'h');
+  return pad(buf);
+}
 
 /* ── 앞발 ─────────────────────────────────────────────────── */
 /* 좌우 위치를 모두 인자로 받습니다. 상태마다 자세가 다릅니다.  */
@@ -479,9 +511,12 @@ export const yanks = [[21, 21], [25, 18], [23, 20]];
 /* 두르기 전(complete/showoff)과 목에 두른 뒤(wearing)는       */
 /* 형태 자체가 달라서 별도 스프라이트(wornScarf)로 둡니다.      */
 
+/** top~bottom 사이 몸통 길이. 9로 늘려봤다가 너무 길어서 되돌렸습니다. */
+export const FINISHED_PIECE_SPAN = 6;
+
 export function finishedPiece(top = 20) {
   const buf = buffer();
-  const left = 9, right = 22, bottom = top + 6;
+  const left = 9, right = 22, bottom = top + FINISHED_PIECE_SPAN;
   for (let x = left; x <= right; x++) {
     put(buf, x, top, 'k');
     put(buf, x, bottom, 'k');
@@ -498,34 +533,16 @@ export function finishedPiece(top = 20) {
   return pad(buf);
 }
 
-/**
- * 완성 표시용 나비 리본. 양 날개는 바깥쪽 모서리 점 두 개로만
- * 표시해 삼각형처럼 읽히게 하고, 가운데 매듭만 세로로 채웁니다.
- * 점을 다 채우면 십자가로 보여서 비워둡니다.
- * NEEDLE 팔레트를 재사용해 바늘 마개와 색을 맞춥니다.
- */
-export function bow(top = 20) {
-  const buf = buffer();
-  const cx = 15, cy = top + 2;
-  put(buf, cx - 2, cy - 1, 'h');
-  put(buf, cx - 2, cy + 1, 'h');
-  put(buf, cx - 1, cy, 'h');
-  put(buf, cx, cy - 1, 'h');
-  put(buf, cx, cy, 'h');
-  put(buf, cx, cy + 1, 'h');
-  put(buf, cx + 1, cy, 'h');
-  put(buf, cx + 2, cy - 1, 'h');
-  put(buf, cx + 2, cy + 1, 'h');
-  return pad(buf);
-}
-
 /** 목에 두른 뒤의 모습. 어깨선을 덮고 앞으로 두 자락이 늘어집니다. */
 export function wornScarf() {
   const buf = buffer();
   for (let x = 9; x <= 22; x++) {
     put(buf, x, 19, 'k');
-    put(buf, x, 20, 'y');
-    put(buf, x, 21, 'd');
+    // 목 두른 부분 양 끝(9, 22)도 테두리로 막아야 아래 자락처럼
+    // 윤곽이 있는 것으로 보입니다 — 없으면 목도리가 색만 있고
+    // 테두리 없이 붕 떠 보입니다.
+    put(buf, x, 20, (x === 9 || x === 22) ? 'k' : 'y');
+    put(buf, x, 21, (x === 9 || x === 22) ? 'k' : 'd');
   }
   for (let y = 22; y <= 27; y++) {
     const ch = (y % 2) ? 'y' : 'd';

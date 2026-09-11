@@ -8,7 +8,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>단수달</title>
+<title>단수달 🦦</title>
 <meta name="author" content="@tteoboja_0" />
 <meta name="copyright" content="© 2026 @tteoboja_0. All rights reserved." />
 <style>
@@ -179,8 +179,8 @@
   }
   input:focus-visible { outline: 2px solid var(--yarn); outline-offset: 1px; }
 
-  /* 실 창고 = 책장 선반. 픽셀아트 톤에 맞춰 그레이디언트 없이 flat
-     색 + 굵은 선반 판자 하나로만 단순하게 표현합니다. */
+  /* 실 창고 = 책장 선반 한 줄. 픽셀아트 톤에 맞춰 그레이디언트 없이
+     flat 색 + 굵은 선반 판자 하나로만 단순하게 표현합니다. */
   .stash {
     background: var(--card);
     border: 1px solid var(--line);
@@ -189,22 +189,29 @@
     margin: 0 0 16px;
   }
   .stash .hint { margin: 0 0 8px; }
+  /* 한 줄에 맨 앞(최근) 1개 | 4개 | 4개를 구분선으로 나눠 담습니다. */
   .stash-grid {
     display: flex;
     align-items: flex-end;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 7px;
     padding-bottom: 10px;
     border-bottom: 4px solid #a3714a;
   }
   .swatch {
     flex: none;
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     min-width: 0;
     padding: 0;
     border: 2px solid var(--ink);
     border-radius: 50%;
+    background-repeat: no-repeat;
+    /* 고양이 장난감 실타래처럼, 사선 세 줄을 가운데로 좁게 모아 겹칩니다. */
+    background-image:
+      linear-gradient(52deg, transparent 38%, rgba(0,0,0,.32) 38%, rgba(0,0,0,.32) 42%, transparent 42%),
+      linear-gradient(52deg, transparent 48%, rgba(0,0,0,.32) 48%, rgba(0,0,0,.32) 52%, transparent 52%),
+      linear-gradient(52deg, transparent 58%, rgba(0,0,0,.32) 58%, rgba(0,0,0,.32) 62%, transparent 62%);
   }
   .swatch.recent { border-color: var(--yarn); border-width: 3px; }
   .swatch:focus-visible { outline: 2px solid var(--yarn); outline-offset: 3px; }
@@ -233,7 +240,7 @@
 <body>
 <main>
   <div class="page-head">
-    <h1>단수달</h1>
+    <h1>단수달 🦦</h1>
     <div class="zoom-controls">
       <button id="zoomOut" type="button" aria-label="캐릭터 작게 보기">−</button>
       <button id="zoomIn" type="button" aria-label="캐릭터 크게 보기">+</button>
@@ -271,16 +278,16 @@
   </dl>
 
   <div class="controls">
-    <button id="add">한 단 떴어요</button>
-    <button id="rip">한 단 풀기</button>
-    <button id="wind">실 감기</button>
-    <button id="swap" type="button">실 교체</button>
-    <button id="wear" hidden>입어보기</button>
-    <button id="reset" type="button">초기화</button>
+    <button id="add">🧶 한 단 떴어요</button>
+    <button id="rip">✂️ 한 단 풀기</button>
+    <button id="wind">🧵 실 감기</button>
+    <button id="swap" type="button">🎨 실 교체</button>
+    <button id="wear" hidden>🧣 입어보기</button>
+    <button id="reset" type="button">🔁 초기화</button>
   </div>
 
   <div class="stash" id="stash" hidden>
-    <p class="hint">새로 쓸 실 색을 골라주세요</p>
+    <p class="hint">🎨 새로 쓸 실 색을 골라주세요</p>
     <div class="stash-grid" id="stashGrid"></div>
   </div>
 </main>

@@ -14,5 +14,6 @@ export const STASH = [
   { id: 'plum', name: '자두', color: '#6b4a75' },
   { id: 'blush', name: '블러시', color: '#e5989b' },
   { id: 'charcoal', name: '차콜', color: '#4a4e69' },
-  { id: 'mustard', name: '머스터드', color: '#e0a800' }
+  { id: 'mustard', name: '머스터드', color: '#e0a800' },
+  { id: 'white', name: '화이트', color: '#ffffff' }
 ];

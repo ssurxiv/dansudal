@@ -33,11 +33,11 @@ const companion = new Companion(canvas, {
     $('percent').textContent = `${s.percent}%`;
     $('bar').style.width = `${s.percent}%`;
     wearBtn.hidden = !s.finished;
-    wearBtn.textContent = s.wearing ? '벗기' : '입어보기';
+    wearBtn.textContent = s.wearing ? '🧣 벗기' : '🧣 입어보기';
     // 완성 후에는 뜨기/풀기/감기/실 교체가 의미 없으니 입어보기·새로 뜨기만 남깁니다.
     addBtn.hidden = ripBtn.hidden = windBtn.hidden = swapBtn.hidden = s.finished;
     if (s.finished) stashPanel.hidden = true;
-    resetBtn.textContent = s.finished ? '새로 뜨기' : '초기화';
+    resetBtn.textContent = s.finished ? '🔁 새로 뜨기' : '🔁 초기화';
   },
   onStatus(text) {
     $('status').textContent = text;
@@ -50,27 +50,44 @@ windBtn.addEventListener('click', () => companion.wind());
 
 // 실 창고 — 지금은 색상만, 나중에 실제 실 제품으로 바뀔 자리.
 // 최근에 고른 색이 맨 앞으로 오도록 순서를 바꿔가며 다시 그립니다.
+// 한 줄에 1개(최근) | 4개 | 4개로 구분선을 나눠 담습니다.
 const stashGrid = $('stashGrid');
 let stashOrder = [...STASH];
 
+function chunkGroups(items, sizes) {
+  const groups = [];
+  let i = 0;
+  let s = 0;
+  while (i < items.length) {
+    const size = sizes[Math.min(s, sizes.length - 1)];
+    groups.push(items.slice(i, i + size));
+    i += size;
+    s += 1;
+  }
+  return groups;
+}
+
 function renderStash() {
   stashGrid.innerHTML = '';
-  stashOrder.forEach((item, i) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = i === 0 ? 'swatch recent' : 'swatch';
-    // background-color 만 바꿔서 CSS의 실뭉치 광택 그레이디언트가 안 지워지게.
-    btn.style.backgroundColor = item.color;
-    btn.setAttribute('aria-label', item.name);
-    btn.title = item.name;
-    btn.addEventListener('click', () => {
-      companion.swapYarn(item.color);
-      stashOrder = [item, ...stashOrder.filter((x) => x !== item)];
-      stashPanel.hidden = true;
-      renderStash();
+  const groups = chunkGroups(stashOrder, [1, 4]);
+  groups.forEach((groupItems, gi) => {
+    groupItems.forEach((item) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = item === stashOrder[0] ? 'swatch recent' : 'swatch';
+      // background-color 만 바꿔서 CSS의 실뭉치 사선 무늬가 안 지워지게.
+      btn.style.backgroundColor = item.color;
+      btn.setAttribute('aria-label', item.name);
+      btn.title = item.name;
+      btn.addEventListener('click', () => {
+        companion.swapYarn(item.color);
+        stashOrder = [item, ...stashOrder.filter((x) => x !== item)];
+        stashPanel.hidden = true;
+        renderStash();
+      });
+      stashGrid.appendChild(btn);
     });
-    stashGrid.appendChild(btn);
-    if (i === 0 && stashOrder.length > 1) {
+    if (gi < groups.length - 1) {
       const divider = document.createElement('span');
       divider.className = 'stash-divider';
       stashGrid.appendChild(divider);
@@ -97,7 +114,7 @@ $('target').addEventListener('blur', (e) => {
   if (!Number.isFinite(value) || value < 1) e.target.value = companion.target;
 });
 resetBtn.addEventListener('click', () => {
-  const prompt = resetBtn.textContent === '새로 뜨기'
+  const prompt = resetBtn.textContent === '🔁 새로 뜨기'
     ? '지금 뜨개는 그만두고 새로 시작할까요?'
     : '진행 상황을 처음으로 되돌릴까요?';
   if (window.confirm(prompt)) companion.reset();

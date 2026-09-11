@@ -17,6 +17,8 @@
  *   repeatIf  frames 가 null 일 때 계속 돌지 판단하는 조건 이름
  *   everyN    반복 상태에서 액션을 몇 프레임마다 실행할지
  *   next      끝난 뒤 이동할 상태. null 이면 idle
+ *   showBang  true 면 느낌표(S.bang)를 띄웁니다
+ *   wagTail   true 면 꼬리를 위아래로 흔듭니다
  *
  * 여기에 없는 동작은 렌더러에도 없어야 합니다. 상태를 추가할 때
  * 이 표를 먼저 고치고 그다음에 POSES 를 채우는 순서로 작업하세요.
@@ -151,6 +153,7 @@ export const STATES = {
     frames: null,
     frameMs: 220,
     repeatIf: 'always',
+    wagTail: true,
     next: null
   }
 

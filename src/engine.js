@@ -89,7 +89,7 @@ function stripedRows(c, sprite, fromY, toY) {
 }
 
 function pieceLayers(c, top) {
-  return stripedRows(c, S.finishedPiece(top), top, top + 7);
+  return stripedRows(c, S.finishedPiece(top), top, top + S.FINISHED_PIECE_SPAN + 1);
 }
 
 function scarfLayers(c) {
@@ -129,15 +129,18 @@ const POSES = {
     };
   },
 
+  /* 오른쪽 바늘을 코에서 뽑으면서, 화면 밖으로 미끄러져 나가
+     "갑자기 사라지는" 대신 귀 뒤에 꽂아둔 것처럼 보이게 합니다. */
   pullingNeedle(c, frame) {
     const step = Math.min(frame, 1);
     return {
       behind: [
         [S.feedStrand(c.knitLength, c.ball), currentPalette(c)],
-        [S.floorBall(c.ball), currentPalette(c)]
+        [S.floorBall(c.ball), currentPalette(c)],
+        ...(step >= 1 ? [[S.earNeedle(), S.NEEDLE]] : [])
       ],
       front: [
-        [S.needles(1, step), S.NEEDLE],
+        [S.needles(1, step * 2), S.NEEDLE],
         ...knitLayers(c, false),
         [S.paws(7, 21, 21 + step * 2, 21 - step * 2), S.BODY]
       ]
@@ -149,7 +152,8 @@ const POSES = {
     return {
       behind: [
         [S.feedStrand(c.knitLength, c.ball), currentPalette(c)],
-        [S.floorBall(c.ball), currentPalette(c)]
+        [S.floorBall(c.ball), currentPalette(c)],
+        [S.earNeedle(), S.NEEDLE]
       ],
       front: [
         [S.needles(1, 2), S.NEEDLE],
@@ -177,11 +181,13 @@ const POSES = {
         ]
       };
     }
+    // 완성되는 순간(반짝임이 한꺼번에 터지는 여기)에 실뭉치도 함께
+    // 치웁니다 — 다 떴으니 더 쓸 일이 없는 실뭉치를 계속 바닥에
+    // 그려두는 게 어색해서, 이미 있는 "짜잔" 전환 프레임에 얹었습니다.
     return {
-      behind: [[S.floorBall(c.ball), currentPalette(c)]],
+      behind: [],
       front: [
         ...pieceLayers(c, 20),
-        [S.bow(20), S.NEEDLE],
         [S.paws(7, 21, 21, 21), S.BODY],
         [frame === 3 ? S.sparkleBurst() : S.sparkles(frame), S.SPARK]
       ]
@@ -192,10 +198,9 @@ const POSES = {
   showoff(c, frame) {
     const top = 19 - ((frame % 8 < 4) ? 0 : 1);
     return {
-      behind: [[S.floorBall(c.ball), currentPalette(c)]],
+      behind: [],
       front: [
         ...pieceLayers(c, top),
-        [S.bow(top), S.NEEDLE],
         [S.sparkles(frame), S.SPARK],
         ...spreadHold(top)
       ]
@@ -205,10 +210,9 @@ const POSES = {
   /* 입어보기 예비 동작 — 반짝임이 몰아치는 짧은 전환. */
   wrapping(c, frame) {
     return {
-      behind: [[S.floorBall(c.ball), currentPalette(c)]],
+      behind: [],
       front: [
         ...pieceLayers(c, 19),
-        [S.bow(19), S.NEEDLE],
         [S.sparkles(frame * 2), S.SPARK],
         ...spreadHold(19)
       ]
@@ -235,7 +239,7 @@ const POSES = {
      옆에서 은은하게 떠오릅니다. */
   wearing(c, frame) {
     return {
-      behind: [[S.floorBall(c.ball), currentPalette(c)]],
+      behind: [],
       front: [
         ...scarfLayers(c),
         [S.paws(7, 21, 21, 21), S.BODY],
@@ -296,6 +300,8 @@ const FINISHED_STATES = new Set(['complete', 'showoff', 'wrapping', 'wearing']);
 
 /* 벗고 다시 자랑할 때 매번 같은 말이면 심심하니 랜덤으로 고릅니다. */
 const SHOWOFF_LINES = ['예쁘죠?', '뿌듯하다!', '짜잔!', '완전 마음에 들어!', '이야, 잘 됐다!'];
+/* 처음 들어왔을 때·초기화했을 때도 매번 같은 문구면 심심하니까. */
+const IDLE_GREETINGS = ['같이 떠요 :)', '오늘은 뭘 뜨지 o_o?', '뭐부터 떠볼까?', '실 준비됐어요!'];
 const pickLine = (lines) => lines[Math.floor(Math.random() * lines.length)];
 
 export class Companion {
@@ -477,7 +483,7 @@ export class Companion {
     this.usedBall = 0;
     this.currentColor = this.initialColor;
     this.colorSegments = [{ from: 0, color: this.initialColor }];
-    this.onStatus('초기화했습니다');
+    this.onStatus(pickLine(IDLE_GREETINGS));
     this.enter('idle');
   }
 
@@ -557,6 +563,7 @@ export class Companion {
       this.step(now);
       requestAnimationFrame(loop);
     };
+    if (this.state === 'idle') this.onStatus(pickLine(IDLE_GREETINGS));
     this.emit();
     this.render();
     requestAnimationFrame(loop);
@@ -572,7 +579,8 @@ export class Companion {
     const pose = POSES[def.pose](this, this.frame);
 
     ctx.clearRect(0, 0, SIZE, SIZE);
-    blit(ctx, S.tail, S.BODY);
+    const tailOffset = def.wagTail ? (this.frame % 8 < 4 ? 0 : 1) : 0;
+    blit(ctx, S.tail(tailOffset), S.BODY);
     blit(ctx, S.body, S.BODY);
 
     pose.behind.forEach(([sprite, palette]) => blit(ctx, sprite, palette));
@@ -583,7 +591,7 @@ export class Companion {
     const faceKey = (def.face === 'neutral' && this.blink) ? 'flat' : def.face;
     const layers = S.faces[faceKey];
     if (layers) layers.forEach((layer) => blit(ctx, layer, S.BODY));
-    if (def.showBang) blit(ctx, S.bang, S.BODY);
+    if (def.showBang) blit(ctx, S.bang, S.NEEDLE);
 
     pose.front.forEach(([sprite, palette]) => blit(ctx, sprite, palette));
 
