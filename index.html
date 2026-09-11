@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<!--
+  단수달 (Knitting Companion)
+  Copyright (c) 2026 @tteoboja_0. All rights reserved.
+  무단 복제 및 재배포를 금합니다. https://instagram.com/tteoboja_0
+-->
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>단수달</title>
+<meta name="author" content="@tteoboja_0" />
+<meta name="copyright" content="© 2026 @tteoboja_0. All rights reserved." />
+<style>
+  :root {
+    --ink: #3b2a1c;
+    --muted: #8a7561;
+    --paper: #fbf6ee;
+    --card: #f3ead9;
+    --line: #e0d2bd;
+    --yarn: #3f7266;
+    /* 캐릭터의 밝은 크림색(배·볼)이 --card 와 거의 같은 톤이라
+       묻혔던 문제라, 카드보다 확실히 밝은 흰색 계열로 띄웁니다. */
+    --stage-bg: #fffaf1;
+    --zoom: 1;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: clamp(16px, 5vw, 24px) clamp(14px, 5vw, 20px) 48px;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Pretendard", "Apple SD Gothic Neo", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  main { max-width: 420px; margin: 0 auto; }
+
+  .page-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  h1 {
+    font-size: clamp(15px, 4vw, 17px);
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .zoom-controls { display: flex; gap: 6px; flex: none; }
+  .zoom-controls button {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    min-width: 0;
+    padding: 0;
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .stage-wrap {
+    background: var(--stage-bg);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: clamp(14px, 4vw, 20px);
+    text-align: center;
+  }
+  #stage {
+    width: min(calc(224px * var(--zoom)), 100%);
+    image-rendering: pixelated;
+    display: block;
+    margin: 0 auto;
+  }
+  #status {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 12px 0 0;
+    min-height: 1.6em;
+  }
+
+  .progress { margin: 20px 0 16px; }
+  .progress-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .track {
+    height: 6px;
+    background: var(--line);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .fill {
+    height: 100%;
+    width: 0;
+    background: var(--yarn);
+    transition: width 160ms ease-out;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 8px;
+    text-align: center;
+    min-width: 0;
+  }
+  .stat dt { font-size: 12px; color: var(--muted); margin: 0; }
+  .stat dd {
+    font-size: clamp(15px, 4.5vw, 19px);
+    font-weight: 600;
+    margin: 2px 0 0;
+    white-space: nowrap;
+  }
+
+  /* 아주 좁은 화면에서는 4칸을 억지로 욱여넣지 않고 2x2 로 접습니다. */
+  @media (max-width: 360px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  button {
+    flex: 1 1 auto;
+    min-width: 88px;
+    padding: 11px 14px;
+    font: inherit;
+    font-weight: 600;
+    color: var(--ink);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  button:hover { background: var(--card); }
+  button:focus-visible { outline: 2px solid var(--yarn); outline-offset: 2px; }
+  #add { background: var(--yarn); border-color: var(--yarn); color: #fff; }
+  #add:hover { filter: brightness(1.08); }
+  #wear { border-color: var(--yarn); color: var(--yarn); }
+  #reset { color: var(--muted); }
+
+  .target { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .target label { font-size: 14px; color: var(--muted); }
+  input[type="number"] {
+    width: 88px;
+    padding: 9px 10px;
+    font: inherit;
+    color: var(--ink);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  input:focus-visible { outline: 2px solid var(--yarn); outline-offset: 1px; }
+
+  .hint { font-size: 13px; color: var(--muted); margin: 0 0 4px; }
+  footer {
+    margin-top: 28px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  footer a { color: var(--yarn); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fill { transition: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="page-head">
+    <h1>단수달</h1>
+    <div class="zoom-controls">
+      <button id="zoomOut" type="button" aria-label="캐릭터 작게 보기">−</button>
+      <button id="zoomIn" type="button" aria-label="캐릭터 크게 보기">+</button>
+    </div>
+  </div>
+
+  <div class="stage-wrap">
+    <canvas id="stage" width="32" height="32"
+            aria-label="뜨개질하는 수달 캐릭터"></canvas>
+    <p id="status">대기 중</p>
+  </div>
+
+  <div class="progress">
+    <div class="progress-head">
+      <span>진행</span><span id="percent">0%</span>
+    </div>
+    <div class="track"><div class="fill" id="bar"></div></div>
+  </div>
+
+  <dl class="stats">
+    <div class="stat"><dt>단수</dt><dd id="rows">0 / 20</dd></div>
+    <div class="stat"><dt>푼 단</dt><dd id="ripped">0</dd></div>
+    <div class="stat"><dt>바닥</dt><dd id="pile">0</dd></div>
+    <div class="stat"><dt>실뭉치</dt><dd id="ball">12</dd></div>
+  </dl>
+
+  <div class="target">
+    <label for="target">목표 단수</label>
+    <input type="number" id="target" value="20" min="1" max="999" />
+  </div>
+
+  <div class="controls">
+    <button id="add">한 단 떴어요</button>
+    <button id="rip">한 단 풀기</button>
+    <button id="wind">실 감기</button>
+    <button id="wear" hidden>입어보기</button>
+    <button id="reset" type="button">초기화</button>
+  </div>
+
+  <p class="hint">스페이스바로 한 단 추가, 백스페이스로 한 단 풀기, W로 실 감기</p>
+
+  <footer>
+    단수달 &copy; 2026
+    <a href="https://instagram.com/tteoboja_0" rel="noopener">@tteoboja_0</a>.
+    무단 재배포를 금합니다.
+  </footer>
+</main>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
