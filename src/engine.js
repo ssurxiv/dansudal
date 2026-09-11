@@ -393,11 +393,18 @@ export class Companion {
       this.frame += 1;
 
       if (def.frames === null) {
-        const keepGoing = CONDITIONS[def.repeatIf](this);
-        if (!keepGoing) {
-          this.onStatus('다 감았습니다');
-          this.enter(this.resolveNext(def));
-          return;
+        // everyN 이 있는 반복 상태는 한 주기(everyN 프레임)를 다 돌고
+        // 나서만 계속할지 판단합니다. 매 프레임 판단하면 방금 마지막
+        // 한 코를 감은 바로 다음 프레임에 뚝 끊겨 액션이 거의 안
+        // 보입니다.
+        const atBoundary = !def.everyN || this.frame % def.everyN === 0;
+        if (atBoundary) {
+          const keepGoing = CONDITIONS[def.repeatIf](this);
+          if (!keepGoing) {
+            this.onStatus('다 감았습니다');
+            this.enter(this.resolveNext(def));
+            return;
+          }
         }
         this.runFrameActions(def, this.frame);
       } else if (this.frame >= def.frames) {

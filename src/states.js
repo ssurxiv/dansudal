@@ -92,16 +92,18 @@ export const STATES = {
     next: 'wind'
   },
 
-  /* 감기 — 바닥이 빌 때까지 반복합니다. */
+  /* 감기 — 바닥이 빌 때까지 반복합니다. 주기를 늘리고 windOne 을
+     주기 중간(3번째 프레임)에 둬서, 실이 한두 코뿐이라도 감는
+     동작이 최소 한 바퀴는 눈에 보이도록 합니다. */
   wind: {
     pose: 'winding',
     ears: 'normal',
     face: 'flat',
     frames: null,
-    frameMs: 150,
+    frameMs: 170,
     repeatIf: 'pileRemains',
-    everyN: 4,
-    onFrame: { 0: 'windOne' },
+    everyN: 6,
+    onFrame: { 3: 'windOne' },
     next: 'idle'
   },
 
