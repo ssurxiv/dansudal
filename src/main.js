@@ -33,6 +33,18 @@ const noteNumberInput = $('noteNumber');
 const noteMessageInput = $('noteMessage');
 const noteSubmitBtn = $('noteSubmit');
 const noteCancelBtn = $('noteCancel');
+const bubbleEl = $('bubble');
+const statusEl = $('status');
+
+/**
+ * 캐릭터의 말풍선(+스크린리더용 상태줄)을 갱신합니다. kind 'chat'은
+ * 평소 멘트, 'note'는 단수 메모 알림 — 말풍선 색으로 구분됩니다.
+ */
+function setStatus(text, kind = 'chat') {
+  statusEl.textContent = text; // 화면에는 안 보임(.sr-only), 스크린리더용
+  bubbleEl.textContent = text;
+  bubbleEl.className = `speech-bubble kind-${kind}`;
+}
 
 // UI는 Companion 내부를 직접 읽지 않으므로, ± 버튼이 현재 usedBall
 // 값을 알아야 할 때 쓰도록 최근 snapshot 을 여기 보관해둡니다.
@@ -85,9 +97,7 @@ const companion = new Companion(canvas, {
     resetBtn.textContent = s.finished ? '🔁 새로 뜨기' : '🔁 초기화';
     renderNotesList(s.notes);
   },
-  onStatus(text) {
-    $('status').textContent = text;
-  }
+  onStatus: setStatus
 });
 
 companion.restore(loadState());
@@ -236,7 +246,7 @@ noteForm.addEventListener('submit', (e) => {
     : companion.addNote(input) !== null;
 
   if (ok) resetNoteForm();
-  else $('status').textContent = '메모를 확인해주세요 (단수와 메모 내용을 입력하세요)';
+  else setStatus('메모를 확인해주세요 (단수와 메모 내용을 입력하세요)');
 });
 
 wearBtn.addEventListener('click', () => {

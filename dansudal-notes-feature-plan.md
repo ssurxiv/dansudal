@@ -11,9 +11,28 @@
 1. **편집 시점** — 프로젝트 시작할 때 한 번만이 아니라, **언제든 메모를 추가·수정·삭제할 수
    있게 한다.** 뜨는 중간에 "여기서부터 줄임 넣어야지" 하고 바로 추가 가능해야 한다.
 2. **표시 방식** — 32×32 캔버스 안에는 글자를 그릴 폰트가 없어 자유 텍스트를 픽셀아트로 직접
-   그릴 수 없다. 그래서 **캐릭터 위에 작은 말풍선 아이콘(기존 `bang`/`notice` 패턴과 같은
-   방식)을 띄우는 동시에, 실제 문구는 `#status` 줄에 표시**한다. 아이콘이 "지금 알림이 떴다"는
-   시각 신호를 주고, 문구는 상태줄이 전달한다.
+   그릴 수 없다. ~~그래서 캐릭터 위에 작은 말풍선 아이콘(기존 `bang`/`notice` 패턴과 같은
+   방식)을 띄우는 동시에, 실제 문구는 `#status` 줄에 표시한다.~~ **(0.1 참조 — 실제 사용해보고
+   픽셀 아이콘은 잘 안 보인다는 피드백에 따라 CSS 말풍선으로 교체함)**
+
+### 0.1 후속 수정 — 픽셀 아이콘 → CSS 말풍선
+
+처음 구현한 픽셀 아이콘(캐릭터 왼쪽 위의 작은 점 하나)은 실제로 써보니 눈에 잘 안 띄었다.
+그래서 캔버스 바깥에 진짜 HTML/CSS 말풍선을 띄우고, 그 안에 문구를 직접 적는 방식으로
+바꿨다 — "멘트"(평소 잡담)와 "알림"(메모)은 말풍선 색으로 구분한다(흰색 vs 연두색).
+
+- `sprites.js`의 `noteBubble` 픽셀 스프라이트, `engine.js`의 `this.noteBubble` 플래그와
+  `render()`의 관련 블릿 라인은 전부 삭제했다 — 더 이상 필요 없다.
+- `Companion.onStatus(text, kind)` 로 시그니처를 확장했다(`kind` 기본값 `'chat'`). 메모 알림만
+  `advanceBubble()`에서 `'note'`를 넘긴다. 다른 모든 `onStatus` 호출부는 그대로 두면 자동으로
+  `'chat'`이 된다.
+- `queueBubble`/`advanceBubble`(메모 여러 개가 겹칠 때 순서대로 보여주는 큐잉)과, addRow()의
+  "말풍선 재생 중엔 평범한 진행 문구가 안 덮어씀" 로직은 그대로 유지된다 — 캔버스에 그리던
+  것을 DOM에 그리는 것으로 바뀌었을 뿐, 타이밍/우선순위 로직은 동일하다.
+- `main.js`에 `setStatus(text, kind)` 헬퍼를 추가해 말풍선 DOM(`#bubble`)과 텍스트를 함께
+  갱신한다. `Companion`의 `onStatus` 옵션으로 그대로 전달한다.
+- 덤으로 기존 `#status` 문단은 화면에서 안 보이는 `.sr-only` + `aria-live="polite"` 로 남겨
+  스크린리더에도 상태가 읽히게 했다 — 설계서 7.8절이 지적했던 문제를 같은 김에 해결했다.
 
 ## 1. 데이터 모델
 
@@ -56,15 +75,14 @@ if (hits.length) this.queueBubble(hits.map((n) => n.message));
 "한 번 뜬 메모는 다시 안 뜨게" 소비 처리하지 않는다. 되돌아가서 다시 뜬다는 건 그 지점을 다시
 지나간다는 뜻이라, 알림도 다시 필요하다.
 
-## 3. 말풍선 큐잉·표시
+## 3. 말풍선 큐잉·표시 (0.1 반영 후 최종본)
 
 한 단에 메모가 여러 개 겹치면(예: "5단마다"와 "12단" 메모가 같은 단에서 동시에 발동) 순서대로
-하나씩 보여준다.
+하나씩 보여준다. 픽셀 아이콘을 켜고 끄던 부분만 빠졌을 뿐, 큐잉/타이밍은 최초 설계 그대로다.
 
 ```js
 this.bubbleQueue = [];   // 저장 안 함 — 연출용 일시 상태
 this.bubbleTimer = null;
-this.noteBubble = false; // render()가 아이콘을 그릴지 여부
 
 queueBubble(messages) {
   this.bubbleQueue.push(...messages);
@@ -73,22 +91,21 @@ queueBubble(messages) {
 
 advanceBubble() {
   if (this.bubbleQueue.length === 0) {
-    this.noteBubble = false;
     this.bubbleTimer = null;
-    this.render();
     return;
   }
-  this.noteBubble = true;
-  this.onStatus(this.bubbleQueue.shift());
-  this.render();
+  this.onStatus(this.bubbleQueue.shift(), 'note'); // kind='note'로 말풍선 색을 알려줌
   this.bubbleTimer = setTimeout(() => this.advanceBubble(), 2200);
 }
 ```
 
-기존 `blink`과 같은 패턴(모델이 아니라 연출 상태라 `serialize()` 대상에서 제외, `setTimeout` +
-`render()`로 처리)을 그대로 따른다.
+기존 `blink`과 같은 패턴(모델이 아니라 연출 상태라 `serialize()` 대상에서 제외)을 따른다.
 
-## 4. 새 스프라이트 — `noteBubble` 아이콘
+## 4. (폐기됨) 새 스프라이트 — `noteBubble` 아이콘
+
+> **0.1에서 이 절 전체가 폐기되었다.** 아래는 최초 설계 기록으로만 남겨둔다 — 실제 코드에는
+> 없다. 대신 `index.html`에 `.speech-bubble` CSS 말풍선을 추가했다(위치: `.stage-wrap` 안,
+> `position:absolute`로 캐릭터 머리 위에 뜸. `.kind-note`는 연두색, 기본은 흰색).
 
 `sprites.js`에 `bang`과 같은 방식으로 정적 아이콘 하나를 추가한다. `bang`은 오른쪽 위(귀 옆)에
 느낌표를 띄우므로, 겹치지 않도록 **왼쪽 위 빈 공간**에 작은 말풍선 + 점 하나를 그린다.

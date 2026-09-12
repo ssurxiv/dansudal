@@ -362,14 +362,15 @@ export class Companion {
     // 단수 메모 — 특정 단/N단마다 말풍선으로 알려줄 목록. 언제든
     // 추가·수정·삭제할 수 있는 사용자 데이터라 모델에 포함해 저장합니다.
     this.notes = options.notes ?? [];
-    // 말풍선 큐/표시 여부는 연출용 일시 상태라 저장하지 않습니다.
+    // 메모가 여러 개 겹칠 때 순서대로 보여줄 큐 — 연출용 일시 상태라 저장하지 않습니다.
     this.bubbleQueue = [];
     this.bubbleTimer = null;
-    this.noteBubble = false;
 
     this.flash = false;
     this.blink = false;
     this.onChange = options.onChange ?? (() => {});
+    // (text, kind) 형태로 부릅니다. kind 는 기본 'chat'(평소 멘트)이고,
+    // 메모 알림만 'note' 를 넘겨 main.js 가 말풍선 색을 다르게 그립니다.
     this.onStatus = options.onStatus ?? (() => {});
     // Companion 은 localStorage 를 모릅니다 — "모델이 바뀌었다"만
     // 알리고, 실제 저장은 주입받은 콜백(main.js)이 담당합니다.
@@ -671,8 +672,10 @@ export class Companion {
 
   /**
    * 한 단에 메모가 여러 개 겹치면 말풍선을 동시에 띄우지 않고 순서대로
-   * 하나씩 보여줍니다. bubbleQueue/noteBubble 은 연출용 일시 상태라
-   * serialize() 대상이 아닙니다 — blink 와 같은 취급입니다.
+   * 하나씩 보여줍니다. onStatus 에 'note' 종류를 넘겨서, main.js 가
+   * 말풍선 색으로 평소 멘트와 구분해 그릴 수 있게 합니다. bubbleQueue
+   * 는 연출용 일시 상태라 serialize() 대상이 아닙니다 — blink 와 같은
+   * 취급입니다.
    */
   queueBubble(messages) {
     this.bubbleQueue.push(...messages);
@@ -681,14 +684,10 @@ export class Companion {
 
   advanceBubble() {
     if (this.bubbleQueue.length === 0) {
-      this.noteBubble = false;
       this.bubbleTimer = null;
-      this.render();
       return;
     }
-    this.noteBubble = true;
-    this.onStatus(this.bubbleQueue.shift());
-    this.render();
+    this.onStatus(this.bubbleQueue.shift(), 'note');
     this.bubbleTimer = setTimeout(() => this.advanceBubble(), 2200);
   }
 
@@ -797,7 +796,6 @@ export class Companion {
     const layers = S.faces[faceKey];
     if (layers) layers.forEach((layer) => blit(ctx, layer, S.BODY));
     if (def.showBang) blit(ctx, S.bang, S.NEEDLE);
-    if (this.noteBubble) blit(ctx, S.noteBubble, S.NEEDLE);
 
     pose.front.forEach(([sprite, palette]) => blit(ctx, sprite, palette));
 
