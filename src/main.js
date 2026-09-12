@@ -22,14 +22,51 @@ const windBtn = $('wind');
 const swapBtn = $('swap');
 const stashPanel = $('stash');
 const resetBtn = $('reset');
+const ballMinusBtn = $('ballMinus');
+const ballPlusBtn = $('ballPlus');
+const totalBallInput = $('totalBall');
+
+// UI는 Companion 내부를 직접 읽지 않으므로, ± 버튼이 현재 usedBall
+// 값을 알아야 할 때 쓰도록 최근 snapshot 을 여기 보관해둡니다.
+let lastSnapshot = null;
+
+// 진행 상황 저장 — Companion 은 localStorage 를 모르므로, main.js 가
+// 어댑터 역할을 합니다. 엔진은 "바뀌었다"만 알리고(onPersist), 실제
+// 쓰기는 여기서 디바운스해서 처리합니다.
+const STORAGE_KEY = 'dansudal:state';
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null; // 시크릿 모드·파싱 실패 등
+  }
+}
+
+let saveTimer = null;
+function saveState(data) {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch { /* 용량 초과·차단. 무시하고 계속 동작한다 */ }
+  }, 400);
+}
 
 const companion = new Companion(canvas, {
   target: 20,
   yarn: 12,
   color: STASH[0].color,
+  onPersist: saveState,
   onChange(s) {
+    lastSnapshot = s;
     $('rows').textContent = s.rows;
     $('usedBall').textContent = s.usedBall;
+    // 사용자가 지금 타이핑 중인 입력을 덮어쓰지 않도록 건너뜁니다.
+    if (document.activeElement !== totalBallInput) {
+      totalBallInput.value = s.totalBall ?? '';
+    }
     $('percent').textContent = `${s.percent}%`;
     $('bar').style.width = `${s.percent}%`;
     wearBtn.hidden = !s.finished;
@@ -44,9 +81,20 @@ const companion = new Companion(canvas, {
   }
 });
 
+companion.restore(loadState());
+
 addBtn.addEventListener('click', () => companion.addRow());
 ripBtn.addEventListener('click', () => companion.ripRow());
 windBtn.addEventListener('click', () => companion.wind());
+
+ballPlusBtn.addEventListener('click', () => companion.setUsedBall(lastSnapshot.usedBall + 1));
+ballMinusBtn.addEventListener('click', () => companion.setUsedBall(lastSnapshot.usedBall - 1));
+// 보유 볼 수는 선택 입력이라 비워두면 null 을 허용합니다.
+// TASK-1과 같은 이유로 input 이 아니라 change 를 씁니다.
+totalBallInput.addEventListener('change', (e) => {
+  const raw = e.target.value.trim();
+  companion.setTotalBall(raw === '' ? null : parseInt(raw, 10));
+});
 
 // 실 창고 — 지금은 색상만, 나중에 실제 실 제품으로 바뀔 자리.
 // 최근에 고른 색이 맨 앞으로 오도록 순서를 바꿔가며 다시 그립니다.
@@ -104,7 +152,9 @@ wearBtn.addEventListener('click', () => {
   if (companion.state === 'wearing') companion.takeOff();
   else companion.tryOn();
 });
-$('target').addEventListener('input', (e) => {
+// 타이핑 도중의 중간값(1, 10...)으로 상태 기계를 흔들지 않도록
+// input 대신 change(포커스 이탈·엔터 시 1회)에서 커밋합니다.
+$('target').addEventListener('change', (e) => {
   companion.setTarget(parseInt(e.target.value, 10));
 });
 // 목표 단수는 항상 값이 있어야 하니, 비워둔 채 포커스를 벗어나면

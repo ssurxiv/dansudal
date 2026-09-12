@@ -298,6 +298,11 @@ const CONDITIONS = {
 
 const FINISHED_STATES = new Set(['complete', 'showoff', 'wrapping', 'wearing']);
 
+// 저장 데이터 스키마 버전. 필드 구성이 바뀌면 올립니다 — 나중에 여러
+// 프로젝트 지원 등으로 확장할 때 기존 사용자 데이터를 마이그레이션할
+// 유일한 단서라 지금부터 넣어둡니다.
+const SCHEMA = 1;
+
 /* 벗고 다시 자랑할 때 매번 같은 말이면 심심하니 랜덤으로 고릅니다. */
 const SHOWOFF_LINES = ['예쁘죠?', '뿌듯하다!', '짜잔!', '완전 마음에 들어!', '이야, 잘 됐다!'];
 /* 처음 들어왔을 때·초기화했을 때도 매번 같은 문구면 심심하니까. */
@@ -320,11 +325,13 @@ export class Companion {
     this.initialBall = options.yarn ?? 12;
     this.ball = this.initialBall;
 
-    // 다 쓴 볼 수는 뜨개 진행량에서 계산하지 않고, 실물 실뭉치를 다
-    // 썼을 때 사용자가 직접 "실 교체"로 올리는 수동 카운터입니다.
+    // 다 쓴 볼 수(usedBall)와 보유 볼 수(totalBall)는 뜨개 진행량에서
+    // 계산하지 않고, 실물 실뭉치 개수를 사용자가 직접 매기는 수동
+    // 카운터입니다. ball(화면 속 게이지)과는 서로 다른 개념입니다.
     this.initialColor = options.color ?? null;
     this.currentColor = this.initialColor;
     this.usedBall = 0;
+    this.totalBall = options.totalBall ?? null;
 
     // 실을 교체한 knitLength 지점을 경계로 색 구간을 기록합니다.
     // 예: [{from:0,color:A},{from:4,color:B}] → 1~4단은 A, 5단부터는 B.
@@ -335,6 +342,9 @@ export class Companion {
     this.blink = false;
     this.onChange = options.onChange ?? (() => {});
     this.onStatus = options.onStatus ?? (() => {});
+    // Companion 은 localStorage 를 모릅니다 — "모델이 바뀌었다"만
+    // 알리고, 실제 저장은 주입받은 콜백(main.js)이 담당합니다.
+    this.onPersist = options.onPersist ?? (() => {});
 
     this.state = 'idle';
     this.frame = 0;
@@ -343,7 +353,10 @@ export class Companion {
     this.running = false;
   }
 
-  emit() { this.onChange(this.snapshot()); }
+  emit() {
+    this.onChange(this.snapshot());
+    this.onPersist(this.serialize());
+  }
 
   snapshot() {
     return {
@@ -353,11 +366,79 @@ export class Companion {
       pile: this.pile,
       ball: this.ball,
       usedBall: this.usedBall,
+      totalBall: this.totalBall,
       currentColor: this.currentColor,
       percent: Math.min(100, Math.round((this.rows / this.target) * 100)),
       finished: this.rows >= this.target,
       wearing: this.state === 'wearing' || this.state === 'wrapping'
     };
+  }
+
+  /**
+   * 저장 대상은 모델 값뿐입니다. state/frame/flash/blink 같은 연출용
+   * 일시 상태는 뺍니다 — 애니메이션 중간 프레임에서 복원하면 어색합니다.
+   */
+  serialize() {
+    return {
+      schema: SCHEMA,
+      target: this.target,
+      rows: this.rows,
+      ripped: this.ripped,
+      knitLength: this.knitLength,
+      pile: this.pile,
+      ball: this.ball,
+      initialBall: this.initialBall,
+      usedBall: this.usedBall,
+      totalBall: this.totalBall,
+      initialColor: this.initialColor,
+      currentColor: this.currentColor,
+      colorSegments: this.colorSegments
+    };
+  }
+
+  /**
+   * 저장된 값을 되돌립니다. 손상되었거나 스키마가 다르면 아무것도
+   * 바꾸지 않고 false 를 돌려줍니다 — 부분 복원은 하지 않습니다.
+   * 어중간하게 복원된 상태가 더 찾기 어려운 버그를 만듭니다.
+   */
+  restore(data) {
+    if (!data || typeof data !== 'object' || data.schema !== SCHEMA) return false;
+
+    const isNonNegNumber = (v) => Number.isFinite(v) && v >= 0;
+    if (!isNonNegNumber(data.target) || data.target < 1) return false;
+    if (!isNonNegNumber(data.rows)) return false;
+    if (!isNonNegNumber(data.ripped)) return false;
+    if (!isNonNegNumber(data.knitLength) || data.knitLength > S.MAX_KNIT) return false;
+    if (!isNonNegNumber(data.pile) || data.pile > S.MAX_PILE) return false;
+    if (!isNonNegNumber(data.ball)) return false;
+    if (!isNonNegNumber(data.initialBall)) return false;
+    if (!isNonNegNumber(data.usedBall)) return false;
+    if (data.totalBall !== null && !isNonNegNumber(data.totalBall)) return false;
+    if (typeof data.currentColor !== 'string') return false;
+    if (data.initialColor !== null && typeof data.initialColor !== 'string') return false;
+    if (!Array.isArray(data.colorSegments) || data.colorSegments.length === 0) return false;
+    for (const seg of data.colorSegments) {
+      if (!seg || !Number.isFinite(seg.from) || typeof seg.color !== 'string') return false;
+    }
+
+    this.target = Math.floor(data.target);
+    this.rows = Math.floor(data.rows);
+    this.ripped = Math.floor(data.ripped);
+    this.knitLength = Math.floor(data.knitLength);
+    this.pile = Math.floor(data.pile);
+    this.ball = Math.floor(data.ball);
+    this.initialBall = Math.floor(data.initialBall);
+    this.usedBall = Math.floor(data.usedBall);
+    this.totalBall = data.totalBall === null ? null : Math.floor(data.totalBall);
+    this.initialColor = data.initialColor;
+    this.currentColor = data.currentColor;
+    this.colorSegments = data.colorSegments.map((seg) => ({ from: seg.from, color: seg.color }));
+
+    // complete 는 "방금 완성한 순간"에만 의미가 있는 반짝임 연출이라,
+    // 페이지를 열 때마다 재생되면 성가십니다. showoff/idle 로 바로 갑니다.
+    this.state = this.rows >= this.target ? 'showoff' : 'idle';
+    this.frame = 0;
+    return true;
   }
 
   visualLength() {
@@ -423,9 +504,13 @@ export class Companion {
     this.enter(ENTRY.wind);
   }
 
-  /** 실물 실뭉치를 다 써서 실 창고에서 새 색을 골라 교체했을 때. */
+  /**
+   * 실 창고에서 새 색을 골라 배색을 바꿨을 때. 볼을 다 써서 새로
+   * 열었는지 아니면 색만 바꾼 것인지는 알 수 없으므로(둘 다 같은
+   * 동작으로 보임), usedBall 은 여기서 건드리지 않습니다 — 그건
+   * 사용자가 setUsedBall 로 직접 매기는 수동 카운터입니다.
+   */
   swapYarn(color) {
-    this.usedBall += 1;
     this.currentColor = color;
     const last = this.colorSegments[this.colorSegments.length - 1];
     if (last.from === this.knitLength) {
@@ -434,14 +519,34 @@ export class Companion {
       this.colorSegments.push({ from: this.knitLength, color });
     }
     this.ball = this.initialBall; // 새 실뭉치라 다시 가득 채웁니다.
-    this.onStatus('실을 교체했습니다');
+    this.onStatus('실 색을 바꿨어요');
+    this.emit();
+  }
+
+  /** 실물로 다 쓴 볼 개수. 사용자가 직접 올리고 내리는 수동 카운터. */
+  setUsedBall(value) {
+    if (!Number.isFinite(value)) return;
+    this.usedBall = Math.max(0, Math.floor(value));
+    this.emit();
+  }
+
+  /** 갖고 있는 볼 개수. 선택 입력이라 비워두면 null 을 허용합니다. */
+  setTotalBall(value) {
+    if (value === null) {
+      this.totalBall = null;
+    } else {
+      if (!Number.isFinite(value) || value < 0) return;
+      this.totalBall = Math.floor(value);
+    }
     this.emit();
   }
 
   setTarget(value) {
     if (!Number.isFinite(value) || value < 1) return;
     this.target = Math.floor(value);
-    if (this.rows > this.target) this.rows = this.target;
+    // rows 는 클램프하지 않습니다 — target 은 "어디까지 뜰 것인가"고
+    // rows 는 "실제로 뜬 기록"이라, 목표를 바꿨다고 이미 뜬 단수가
+    // 사라질 이유가 없습니다. rows > target 은 초과 달성으로 봅니다.
     const want = this.visualLength();
     // 목표 변경으로 줄어든 실은 바닥이 아니라 실뭉치로 돌아갑니다.
     // 푼 게 아니기 때문입니다.

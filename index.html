@@ -148,6 +148,16 @@
     font-weight: 600;
     text-align: center;
   }
+  /* .zoom-controls button 과 같은 30×30 정사각형 스타일 재사용. */
+  .stat dd button {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    min-width: 0;
+    padding: 0;
+    font-size: 15px;
+    line-height: 1;
+  }
   .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
   button {
     flex: 1 1 auto;
@@ -271,7 +281,10 @@
     <div class="stat">
       <dt>쓴 볼 수/보유 볼 수</dt>
       <dd>
-        <span id="usedBall">0</span> /
+        <button id="ballMinus" type="button" aria-label="쓴 볼 수 줄이기">−</button>
+        <span id="usedBall">0</span>
+        <button id="ballPlus" type="button" aria-label="쓴 볼 수 늘리기">+</button>
+        /
         <input type="number" id="totalBall" min="0" max="999" placeholder="-" />
       </dd>
     </div>
@@ -281,7 +294,7 @@
     <button id="add">🧶 한 단 떴어요</button>
     <button id="rip">✂️ 한 단 풀기</button>
     <button id="wind">🧵 실 감기</button>
-    <button id="swap" type="button">🎨 실 교체</button>
+    <button id="swap" type="button">🎨 실 색 바꾸기</button>
     <button id="wear" hidden>🧣 입어보기</button>
     <button id="reset" type="button">🔁 초기화</button>
   </div>
@@ -295,6 +308,7 @@
 <div class="bottom-bar">
   <div class="bottom-bar-inner">
     <p class="hint">스페이스바로 한 단 추가, 백스페이스로 한 단 풀기, W로 실 감기</p>
+    <p class="hint">진행 상황은 이 브라우저에만 저장돼요. 다른 기기에서는 이어지지 않아요.</p>
     <footer>
       단수달 &copy; 2026
       <a href="https://instagram.com/tteoboja_0" rel="noopener">@tteoboja_0</a>.
