@@ -301,7 +301,28 @@ const FINISHED_STATES = new Set(['complete', 'showoff', 'wrapping', 'wearing']);
 // 저장 데이터 스키마 버전. 필드 구성이 바뀌면 올립니다 — 나중에 여러
 // 프로젝트 지원 등으로 확장할 때 기존 사용자 데이터를 마이그레이션할
 // 유일한 단서라 지금부터 넣어둡니다.
-const SCHEMA = 1;
+// v1 → v2: notes(단수 메모) 필드 추가. restore() 에서 v1 데이터는
+// 버리지 않고 notes: [] 로 보정합니다.
+const SCHEMA = 2;
+
+let noteSeq = 0;
+const makeNoteId = () => `note-${Date.now().toString(36)}-${(noteSeq++).toString(36)}`;
+
+/**
+ * 메모 입력을 검증하고 정규화합니다. row(특정 단)와 every(N단마다)는
+ * 정확히 하나만 있어야 하고, message 는 비어있지 않아야 합니다.
+ * 조건을 못 만족하면 null 을 돌려줍니다.
+ */
+function normalizeNote(input, id) {
+  const row = Number.isFinite(input?.row) ? Math.floor(input.row) : null;
+  const every = Number.isFinite(input?.every) ? Math.floor(input.every) : null;
+  const message = typeof input?.message === 'string' ? input.message.trim() : '';
+  if (!message) return null;
+  const hasRow = row !== null && row >= 1;
+  const hasEvery = every !== null && every >= 1;
+  if (hasRow === hasEvery) return null; // 둘 다 없거나 둘 다 있으면 무효
+  return { id: id ?? makeNoteId(), row: hasRow ? row : null, every: hasEvery ? every : null, message };
+}
 
 /* 벗고 다시 자랑할 때 매번 같은 말이면 심심하니 랜덤으로 고릅니다. */
 const SHOWOFF_LINES = ['예쁘죠?', '뿌듯하다!', '짜잔!', '완전 마음에 들어!', '이야, 잘 됐다!'];
@@ -338,6 +359,14 @@ export class Companion {
     // 바닥·실뭉치는 구간을 나누지 않고 늘 currentColor 하나로 단순화합니다.
     this.colorSegments = [{ from: 0, color: this.initialColor }];
 
+    // 단수 메모 — 특정 단/N단마다 말풍선으로 알려줄 목록. 언제든
+    // 추가·수정·삭제할 수 있는 사용자 데이터라 모델에 포함해 저장합니다.
+    this.notes = options.notes ?? [];
+    // 말풍선 큐/표시 여부는 연출용 일시 상태라 저장하지 않습니다.
+    this.bubbleQueue = [];
+    this.bubbleTimer = null;
+    this.noteBubble = false;
+
     this.flash = false;
     this.blink = false;
     this.onChange = options.onChange ?? (() => {});
@@ -368,6 +397,7 @@ export class Companion {
       usedBall: this.usedBall,
       totalBall: this.totalBall,
       currentColor: this.currentColor,
+      notes: this.notes,
       percent: Math.min(100, Math.round((this.rows / this.target) * 100)),
       finished: this.rows >= this.target,
       wearing: this.state === 'wearing' || this.state === 'wrapping'
@@ -392,7 +422,8 @@ export class Companion {
       totalBall: this.totalBall,
       initialColor: this.initialColor,
       currentColor: this.currentColor,
-      colorSegments: this.colorSegments
+      colorSegments: this.colorSegments,
+      notes: this.notes
     };
   }
 
@@ -402,7 +433,11 @@ export class Companion {
    * 어중간하게 복원된 상태가 더 찾기 어려운 버그를 만듭니다.
    */
   restore(data) {
-    if (!data || typeof data !== 'object' || data.schema !== SCHEMA) return false;
+    if (!data || typeof data !== 'object') return false;
+    // v1 에는 notes 가 없었을 뿐 나머지 필드는 그대로 호환되므로,
+    // 버리지 않고 빈 메모 목록으로 보정해 v2로 올립니다.
+    if (data.schema === 1) data = { ...data, schema: SCHEMA, notes: [] };
+    if (data.schema !== SCHEMA) return false;
 
     const isNonNegNumber = (v) => Number.isFinite(v) && v >= 0;
     if (!isNonNegNumber(data.target) || data.target < 1) return false;
@@ -420,6 +455,10 @@ export class Companion {
     for (const seg of data.colorSegments) {
       if (!seg || !Number.isFinite(seg.from) || typeof seg.color !== 'string') return false;
     }
+    if (!Array.isArray(data.notes)) return false;
+    for (const n of data.notes) {
+      if (!normalizeNote(n, n?.id)) return false;
+    }
 
     this.target = Math.floor(data.target);
     this.rows = Math.floor(data.rows);
@@ -433,6 +472,7 @@ export class Companion {
     this.initialColor = data.initialColor;
     this.currentColor = data.currentColor;
     this.colorSegments = data.colorSegments.map((seg) => ({ from: seg.from, color: seg.color }));
+    this.notes = data.notes.map((n) => normalizeNote(n, n.id));
 
     // complete 는 "방금 완성한 순간"에만 의미가 있는 반짝임 연출이라,
     // 페이지를 열 때마다 재생되면 성가십니다. showoff/idle 로 바로 갑니다.
@@ -473,10 +513,19 @@ export class Companion {
       this.ball -= 1;
       grew = true;
     }
-    if (!grew && this.knitLength < want && this.ball <= 0) {
-      this.onStatus('실뭉치가 비었습니다. 실을 감아주세요.');
-    } else {
-      this.onStatus(this.rows >= this.target ? '다 떴다!' : '뜨는 중');
+    const hits = this.notes.filter(
+      (n) => n.row === this.rows || (n.every && this.rows % n.every === 0)
+    );
+    if (hits.length) {
+      this.queueBubble(hits.map((n) => n.message));
+    } else if (this.bubbleQueue.length === 0 && !this.bubbleTimer) {
+      // 말풍선이 재생 중일 때는 평범한 진행 문구로 덮어쓰지 않습니다.
+      // 재생이 끝나면(advanceBubble 이 bubbleTimer 를 비우면) 다시 정상 표시됩니다.
+      if (!grew && this.knitLength < want && this.ball <= 0) {
+        this.onStatus('실뭉치가 비었습니다. 실을 감아주세요.');
+      } else {
+        this.onStatus(this.rows >= this.target ? '다 떴다!' : '뜨는 중');
+      }
     }
     this.emit();
     this.enter(ENTRY.knit);
@@ -592,6 +641,57 @@ export class Companion {
     this.enter('idle');
   }
 
+  /* ── 단수 메모 ────────────────────────────────────────── */
+
+  /** 새 메모를 추가합니다. 무효하면(메시지 없음, row/every 둘 다이거나 둘 다 아님) null. */
+  addNote(input) {
+    const note = normalizeNote(input);
+    if (!note) return null;
+    this.notes.push(note);
+    this.emit();
+    return note.id;
+  }
+
+  /** 기존 메모를 교체합니다. id가 없거나 입력이 무효하면 false. */
+  updateNote(id, input) {
+    const idx = this.notes.findIndex((n) => n.id === id);
+    if (idx === -1) return false;
+    const note = normalizeNote(input, id);
+    if (!note) return false;
+    this.notes[idx] = note;
+    this.emit();
+    return true;
+  }
+
+  removeNote(id) {
+    const before = this.notes.length;
+    this.notes = this.notes.filter((n) => n.id !== id);
+    if (this.notes.length !== before) this.emit();
+  }
+
+  /**
+   * 한 단에 메모가 여러 개 겹치면 말풍선을 동시에 띄우지 않고 순서대로
+   * 하나씩 보여줍니다. bubbleQueue/noteBubble 은 연출용 일시 상태라
+   * serialize() 대상이 아닙니다 — blink 와 같은 취급입니다.
+   */
+  queueBubble(messages) {
+    this.bubbleQueue.push(...messages);
+    if (!this.bubbleTimer) this.advanceBubble();
+  }
+
+  advanceBubble() {
+    if (this.bubbleQueue.length === 0) {
+      this.noteBubble = false;
+      this.bubbleTimer = null;
+      this.render();
+      return;
+    }
+    this.noteBubble = true;
+    this.onStatus(this.bubbleQueue.shift());
+    this.render();
+    this.bubbleTimer = setTimeout(() => this.advanceBubble(), 2200);
+  }
+
   /* ── 상태 기계 ────────────────────────────────────────── */
 
   enter(name) {
@@ -697,6 +797,7 @@ export class Companion {
     const layers = S.faces[faceKey];
     if (layers) layers.forEach((layer) => blit(ctx, layer, S.BODY));
     if (def.showBang) blit(ctx, S.bang, S.NEEDLE);
+    if (this.noteBubble) blit(ctx, S.noteBubble, S.NEEDLE);
 
     pose.front.forEach(([sprite, palette]) => blit(ctx, sprite, palette));
 

@@ -232,6 +232,72 @@
     background: var(--line);
   }
 
+  /* 단수 메모 패널 — 실 창고와 같은 카드 톤을 재사용합니다. */
+  .notes {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+    margin: 0 0 16px;
+  }
+  .notes .hint { margin: 0 0 8px; }
+  .notes-list {
+    list-style: none;
+    margin: 0 0 10px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .notes-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  .notes-list .note-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .notes-list .note-actions { display: flex; gap: 4px; flex: none; }
+  .notes-list button {
+    flex: none;
+    min-width: 0;
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  .note-type {
+    display: flex;
+    gap: 12px;
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+  .note-type label { display: flex; align-items: center; gap: 4px; }
+  .note-fields {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .note-fields input[type="number"] { width: 70px; }
+  .note-fields input[type="text"] { flex: 1 1 auto; min-width: 0; }
+  .note-presets {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .note-presets button {
+    flex: none;
+    min-width: 0;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .note-form > .note-actions { display: flex; gap: 8px; }
+  .note-form > .note-actions button { flex: none; min-width: 64px; }
+
   .hint { font-size: 13px; color: var(--muted); margin: 0 0 4px; }
   footer {
     margin-top: 28px;
@@ -295,6 +361,7 @@
     <button id="rip">✂️ 한 단 풀기</button>
     <button id="wind">🧵 실 감기</button>
     <button id="swap" type="button">🎨 실 색 바꾸기</button>
+    <button id="notesToggle" type="button">📝 메모</button>
     <button id="wear" hidden>🧣 입어보기</button>
     <button id="reset" type="button">🔁 초기화</button>
   </div>
@@ -302,6 +369,31 @@
   <div class="stash" id="stash" hidden>
     <p class="hint">🎨 새로 쓸 실 색을 골라주세요</p>
     <div class="stash-grid" id="stashGrid"></div>
+  </div>
+
+  <div class="notes" id="notesPanel" hidden>
+    <p class="hint">📝 특정 단이나 몇 단마다 알려줄 메모를 만들어보세요</p>
+    <ul class="notes-list" id="notesList"></ul>
+    <form id="noteForm" class="note-form">
+      <div class="note-type">
+        <label><input type="radio" name="noteType" value="row" checked /> 특정 단</label>
+        <label><input type="radio" name="noteType" value="every" /> 매 N단</label>
+      </div>
+      <div class="note-fields">
+        <input type="number" id="noteNumber" min="1" max="999" placeholder="단수" required />
+        <input type="text" id="noteMessage" maxlength="40" placeholder="메모 (예: 코 줄임)" required />
+      </div>
+      <div class="note-presets">
+        <button type="button" class="preset" data-msg="코 줄임">코 줄임</button>
+        <button type="button" class="preset" data-msg="코 늘림">코 늘림</button>
+        <button type="button" class="preset" data-msg="꽈배기">꽈배기</button>
+        <button type="button" class="preset" data-msg="실 색 바꾸기">실 색 바꾸기</button>
+      </div>
+      <div class="note-actions">
+        <button type="submit" id="noteSubmit">추가</button>
+        <button type="button" id="noteCancel" hidden>취소</button>
+      </div>
+    </form>
   </div>
 </main>
 
