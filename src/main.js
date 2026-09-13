@@ -55,8 +55,10 @@ function setStatus(text, kind = 'chat') {
 // row-major 흐름). GitHub 잔디의 "여러 주(열)로 쌓이는" 방식 대신
 // 이 편이 "목표 단수 = 칸 개수"가 항상 정확히 맞고, 계산도 훨씬
 // 단순합니다.
-const GRID_GAP = 3;
-const GRID_CELL = 15;
+// 카드 너비가 420px 로 고정돼 있어(main 의 max-width), 24px 칸 +
+// 4px 간격이면 한 줄에 정확히 15마리(5의 배수)가 들어갑니다.
+const GRID_GAP = 4;
+const GRID_CELL = 24;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 

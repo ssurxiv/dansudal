@@ -66,12 +66,14 @@ function knitLayers(c, flash) {
  * 완성 후에는 knitLength 가 늘 MAX_KNIT 로 고정되니, colorSegments 를
  * 0~MAX_KNIT 비율로 매핑해 완성품·목에 두른 스카프에도 실 교체
  * 이력이 줄무늬로 남게 합니다. knitLayers 와 같은 방향(최근 색이
- * 위)으로 맞추려고 비율을 뒤집어서 씁니다.
+ * 위)으로 맞추려고 비율을 뒤집어서 씁니다. colorSegments 자체는 실제
+ * 단수 기준이라, c.knitLengthSegments() 로 압축 단위로 바꿔서 씁니다.
  */
 function colorForFraction(c, frac) {
   const unit = Math.round((1 - frac) * S.MAX_KNIT);
-  let color = c.colorSegments[0].color;
-  for (const seg of c.colorSegments) {
+  const segs = c.knitLengthSegments();
+  let color = segs[0].color;
+  for (const seg of segs) {
     if (seg.from <= unit) color = seg.color;
     else break;
   }
@@ -319,7 +321,13 @@ const RIPPING_STATES = new Set(['notice', 'pullNeedle', 'rip']);
 // 유일한 단서라 지금부터 넣어둡니다.
 // v1 → v2: notes(단수 알림) 필드 추가. restore() 에서 v1 데이터는
 // 버리지 않고 notes: [] 로 보정합니다.
-const SCHEMA = 2;
+// v2 → v3: colorSegments.from 의 기준을 knitLength(0~9 압축 단위)에서
+// 실제 단수로 바꿨습니다. 압축 단위 그대로 두면 여러 실제 단이 같은
+// 단위를 공유해서, 나중에 색을 바꾸면 이미 뜬 앞쪽 단까지 새 색으로
+// 통째로 덮여 보이는 버그가 있었습니다(진행 그리드가 실제 단마다
+// 색을 보여주면서 드러남). restore() 에서 v2 데이터는 역산해서
+// 근사 변환합니다(원래도 압축된 정보라 완벽히 복원은 못 합니다).
+const SCHEMA = 3;
 
 let noteSeq = 0;
 const makeNoteId = () => `note-${Date.now().toString(36)}-${(noteSeq++).toString(36)}`;
@@ -394,9 +402,13 @@ export class Companion {
     this.usedBall = 0;
     this.totalBall = options.totalBall ?? null;
 
-    // 실을 교체한 knitLength 지점을 경계로 색 구간을 기록합니다.
+    // 실을 교체한 실제 단수를 경계로 색 구간을 기록합니다.
     // 예: [{from:0,color:A},{from:4,color:B}] → 1~4단은 A, 5단부터는 B.
     // 바닥·실뭉치는 구간을 나누지 않고 늘 currentColor 하나로 단순화합니다.
+    // 캐릭터 렌더링(knitLayers 등)은 knitLength(0~9 압축 단위)로
+    // 그려지므로, 그쪽은 knitLengthSegments() 로 변환해서 씁니다 —
+    // 진행 그리드(colorForRow)처럼 실제 단수가 필요한 곳만 이 배열을
+    // 그대로 씁니다.
     this.colorSegments = [{ from: 0, color: this.initialColor }];
 
     // 단수 알림 — 특정 단/N단마다 말풍선으로 알려줄 목록. 언제든
@@ -481,7 +493,24 @@ export class Companion {
     if (!data || typeof data !== 'object') return false;
     // v1 에는 notes 가 없었을 뿐 나머지 필드는 그대로 호환되므로,
     // 버리지 않고 빈 알림 목록으로 보정해 v2로 올립니다.
-    if (data.schema === 1) data = { ...data, schema: SCHEMA, notes: [] };
+    // v1 에는 notes 가 없었을 뿐 나머지 필드는 그대로 호환되므로,
+    // 버리지 않고 빈 알림 목록으로 보정해 v2로 올립니다.
+    if (data.schema === 1) data = { ...data, schema: 2, notes: [] };
+    // v2 의 colorSegments.from 은 knitLength(0~9 압축 단위) 기준이라,
+    // 실제 단수로 역산해 근사 변환합니다. 원래도 압축된 정보라 완벽한
+    // 복원은 아니지만, 최소한 이후로는 실제 단수 기준으로 정확해집니다.
+    if (data.schema === 2) {
+      data = {
+        ...data,
+        schema: 3,
+        colorSegments: Array.isArray(data.colorSegments)
+          ? data.colorSegments.map((seg) => ({
+            from: Math.round(((seg?.from ?? 0) / S.MAX_KNIT) * (data.target || 1)),
+            color: seg?.color
+          }))
+          : data.colorSegments
+      };
+    }
     if (data.schema !== SCHEMA) return false;
 
     const isNonNegNumber = (v) => Number.isFinite(v) && v >= 0;
@@ -531,26 +560,35 @@ export class Companion {
   }
 
   /**
-   * row 단이 속하는 knitLength 압축 단위의 실 색을 돌려줍니다. 진행
-   * 그리드(잔디)의 칸 색을 캐릭터 완성품/목도리 줄무늬와 똑같은
-   * 기준으로 맞추기 위한 용도입니다. colorSegments 의 from 은
-   * knitLength(0~9로 뭉친 시각 단위) 기준으로 기록되지, 실제 단수
-   * 기준이 아닙니다 — 실 교체 지점이 정확히 몇 단이었는지는 뭉개진
-   * 정보라 되살릴 수 없으므로, 같은 압축을 거쳐 근사합니다.
+   * row 단의 실 색을 정확히 돌려줍니다. colorSegments 는 실제 단수
+   * 기준으로 기록되므로(생성자 참조) 압축 없이 그대로 찾습니다 —
+   * 진행 그리드가 실제 단마다 정확한 색을 보여줄 수 있는 이유입니다.
    */
   colorForRow(row) {
-    const unit = Math.min(S.MAX_KNIT, Math.round((row / this.target) * S.MAX_KNIT));
     let color = this.colorSegments[0].color;
     for (const seg of this.colorSegments) {
-      if (seg.from <= unit) color = seg.color;
-      else break;
+      if (seg.from < row) color = seg.color;
     }
     return color;
   }
 
-  /** colorSegments 를 length 까지로 잘라 [{from,to,color}] 로 돌려줍니다. */
+  /**
+   * colorSegments(실제 단수 기준)를 knitLength(0~9 압축 단위) 공간으로
+   * 변환합니다. 캐릭터 렌더링(knitLayers/colorForFraction)은 실제
+   * 단수가 아니라 이 압축 단위로 그려지기 때문입니다 — 실 교체 지점이
+   * 정확히 몇 단이었는지는 캐릭터 그림에서는 어차피 뭉개지는 정보라
+   * 근사해도 무방합니다.
+   */
+  knitLengthSegments() {
+    return this.colorSegments.map((seg) => ({
+      from: Math.min(S.MAX_KNIT, Math.round((seg.from / this.target) * S.MAX_KNIT)),
+      color: seg.color
+    }));
+  }
+
+  /** knitLengthSegments() 를 length 까지로 잘라 [{from,to,color}] 로 돌려줍니다. */
   segmentsUpTo(length) {
-    const segs = this.colorSegments;
+    const segs = this.knitLengthSegments();
     const out = [];
     for (let i = 0; i < segs.length; i++) {
       const from = segs[i].from;
@@ -658,14 +696,19 @@ export class Companion {
    * 열었는지 아니면 색만 바꾼 것인지는 알 수 없으므로(둘 다 같은
    * 동작으로 보임), usedBall 은 여기서 건드리지 않습니다 — 그건
    * 사용자가 setUsedBall 로 직접 매기는 수동 카운터입니다.
+   *
+   * 경계는 knitLength(압축 단위)가 아니라 실제 단수(this.rows) 로
+   * 기록합니다 — knitLength 로 기록하면 여러 실제 단이 같은 압축
+   * 단위를 공유해서, 나중에 또 색을 바꿨을 때 그 단위에 속한 이미 뜬
+   * 앞쪽 단까지 새 색으로 통째로 덮여 보이는 버그가 있었습니다.
    */
   swapYarn(color) {
     this.currentColor = color;
     const last = this.colorSegments[this.colorSegments.length - 1];
-    if (last.from === this.knitLength) {
+    if (last.from === this.rows) {
       last.color = color; // 뜨기 전에 또 바꾸면 그 자리 색만 갱신.
     } else {
-      this.colorSegments.push({ from: this.knitLength, color });
+      this.colorSegments.push({ from: this.rows, color });
     }
     this.ball = this.initialBall; // 새 실뭉치라 다시 가득 채웁니다.
     this.onStatus('실 색을 바꿨어요');
