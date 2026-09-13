@@ -108,17 +108,21 @@ function makeFishCell() {
 
 /**
  * 눈 모양을 갱신합니다 — 평소엔 동그라미, 코 줄임 단은 ^, 코 늘림
- * 단은 V. 배경색으로 "구멍"을 뚫는 방식이라(칠하는 게 아니라
- * stroke/fill 을 배경색으로) 어떤 실 색이 와도 또렷하게 보입니다.
+ * 단은 V, 꽈배기 단은 X. 배경색으로 "구멍"을 뚫는 방식이라(칠하는
+ * 게 아니라 stroke/fill 을 배경색으로) 어떤 실 색이 와도 또렷하게
+ * 보입니다.
  */
 function setEyeShape(svg, shape) {
   const old = svg.querySelector('.fish-eye');
   if (old) old.remove();
 
   let eye;
-  if (shape === 'up' || shape === 'down') {
+  if (shape === 'up' || shape === 'down' || shape === 'x') {
     eye = document.createElementNS(SVG_NS, 'path');
-    eye.setAttribute('d', shape === 'up' ? 'M4,11.8 L5.6,9.6 L7.2,11.8' : 'M4,9.6 L5.6,11.8 L7.2,9.6');
+    const d = shape === 'up' ? 'M4,11.8 L5.6,9.6 L7.2,11.8'
+      : shape === 'down' ? 'M4,9.6 L5.6,11.8 L7.2,9.6'
+      : 'M4,9.3 L7.2,12.3 M7.2,9.3 L4,12.3';
+    eye.setAttribute('d', d);
     eye.setAttribute('fill', 'none');
     eye.setAttribute('stroke-width', '1.3');
     eye.setAttribute('stroke-linecap', 'round');
@@ -140,8 +144,8 @@ function setEyeShape(svg, shape) {
  * 초과 달성했으면 그만큼 늘립니다(그래서 칸 개수는 항상 정확히
  * max(target, rows)). 색은 companion.colorForRow() 로 얻습니다
  * (실제 실 교체 이력을 캐릭터 완성품 줄무늬와 같은 기준으로 반영).
- * 이미 뜬 단에 코 줄임/코 늘림 알림이 걸려 있었으면 그 단의 눈
- * 모양을 ^/V 로 바꿔 어떤 기법을 썼는지 한눈에 보이게 합니다.
+ * 이미 뜬 단에 코 줄임/코 늘림/꽈배기 알림이 걸려 있었으면 그 단의
+ * 눈 모양을 ^/V/X 로 바꿔 어떤 기법을 썼는지 한눈에 보이게 합니다.
  */
 function renderRowGrid(rows, target) {
   const total = Math.max(target, rows);
@@ -166,6 +170,7 @@ function renderRowGrid(rows, target) {
     const messages = filled ? companion.notesForRow(knitRow).map((n) => n.message) : [];
     const shape = messages.some((m) => m.includes('코 줄임')) ? 'up'
       : messages.some((m) => m.includes('코 늘림')) ? 'down'
+      : messages.some((m) => m.includes('꽈배기')) ? 'x'
       : 'circle';
     setEyeShape(cells[i], shape);
   }
