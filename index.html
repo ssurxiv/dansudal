@@ -122,14 +122,27 @@
     overflow-wrap: break-word;
     transition: background-color 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out;
   }
+  /* 꼬리를 삼각형 두 장 겹쳐서 만듭니다 — 아래(::before)는 테두리색으로
+     한 칸 더 크게, 위(::after)는 배경색으로 그 안에 얹어 몸통의 테두리가
+     꼬리까지 이어진 것처럼 보이게 합니다. 테두리 없이 배경색만 칠한
+     삼각형 하나로는 카드 배경(--stage-bg)과 흰색이 거의 비슷해 꼬리가
+     안 보이는 문제가 있었습니다. */
+  .speech-bubble::before,
   .speech-bubble::after {
     content: '';
     position: absolute;
     left: 50%;
-    bottom: -6px;
     transform: translateX(-50%);
-    border-width: 6px 6px 0;
     border-style: solid;
+  }
+  .speech-bubble::before {
+    bottom: -8px;
+    border-width: 8px 8px 0;
+    border-color: var(--line) transparent transparent;
+  }
+  .speech-bubble::after {
+    bottom: -6px;
+    border-width: 7px 7px 0;
     border-color: #fff transparent transparent;
   }
   .speech-bubble.kind-note {
@@ -137,6 +150,7 @@
     border-color: var(--yarn);
     color: var(--yarn);
   }
+  .speech-bubble.kind-note::before { border-top-color: var(--yarn); }
   .speech-bubble.kind-note::after { border-top-color: #eaf5f1; }
 
   .progress { margin: 20px 0 16px; }
