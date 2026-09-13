@@ -50,28 +50,28 @@ function setStatus(text, kind = 'chat') {
   bubbleEl.className = `speech-bubble kind-${kind}`;
 }
 
-// 진행 그리드 칸 크기·모양 계산에 쓰는 값들.
-const GRID_GAP = 3;
+// 진행 그리드 칸 크기·모양 계산에 쓰는 값들. 폭(containerWidth)과
+// 높이 예산(GRID_HEIGHT_BUDGET) 두 방향을 같이 맞춰서, 목표가 작아
+// 열이 적어져도 칸을 키워 가로를 마저 채우게 합니다 — 예전엔 칸
+// 크기 상한이 낮아 작은 목표에서 그리드 오른쪽이 텅 비어 보였습니다.
+const GRID_GAP = 4;
 const GRID_MIN_CELL = 7;
-const GRID_MAX_CELL = 26;
-const GRID_MIN_ROWS = 3;
-const GRID_MAX_ROWS = 12;
-const GRID_ASPECT = 3; // 그리드가 세로보다 가로로 3배쯤 넓어 보이도록
+const GRID_MAX_CELL = 44;
+const GRID_MIN_ROWS = 2;
+const GRID_MAX_ROWS = 14;
+const GRID_HEIGHT_BUDGET = 100;
 
 /**
  * 목표 단수(target)와 컨테이너 너비에 맞춰 격자 모양(행·열)과 칸
- * 크기를 정합니다. 목표가 작으면 칸을 크게, 크면 작게 키워서 목표가
- * 뭐든 그리드가 카드 너비를 비슷하게 채우도록 합니다 — 칸이 고정
- * 크기였을 때는 목표가 작은 프로젝트는 그리드가 너무 작아 다 채워도
- * "완성됐다"는 느낌이 안 났습니다.
- *
- * 이상적인 열 수(목표*가로세로비 의 제곱근) 근처에서 목표를 정확히
- * 나누는 열 수를 찾습니다 — 못 찾으면(소수 등) 반올림으로 대체하는데,
- * 이때는 칸이 1~2개 남을 수 있습니다. 딱 나누어떨어지면 완성 시
- * 빈 칸 없이 꽉 찹니다.
+ * 크기를 정합니다. 목표*컨테이너너비/높이예산 의 제곱근을 이상적인
+ * 열 수로 삼아, 그 근처에서 목표를 정확히 나누는 열 수를 찾습니다
+ * (못 찾으면 반올림으로 대체 — 이때는 칸이 1~2개 남을 수 있습니다).
+ * 칸 크기는 "폭 기준으로 계산한 크기"와 "높이 예산 기준으로 계산한
+ * 크기" 중 더 작은 쪽을 씁니다 — 어느 한쪽이 넘치지 않으면서 폭을
+ * 최대한 채우게 됩니다.
  */
 function computeGridShape(target, containerWidth) {
-  const idealCols = Math.max(1, Math.round(Math.sqrt(target * GRID_ASPECT)));
+  const idealCols = Math.max(1, Math.round(Math.sqrt((target * containerWidth) / GRID_HEIGHT_BUDGET)));
   let cols = null;
   let rows = null;
   for (let d = 0; d <= 4 && cols === null; d++) {
@@ -88,29 +88,50 @@ function computeGridShape(target, containerWidth) {
     rows = Math.min(GRID_MAX_ROWS, Math.max(GRID_MIN_ROWS, Math.ceil(target / idealCols)));
     cols = Math.ceil(target / rows);
   }
-  const raw = Math.floor((containerWidth - (cols - 1) * GRID_GAP) / cols);
-  const cellSize = Math.min(GRID_MAX_CELL, Math.max(GRID_MIN_CELL, raw));
+  const byWidth = (containerWidth - (cols - 1) * GRID_GAP) / cols;
+  const byHeight = (GRID_HEIGHT_BUDGET - (rows - 1) * GRID_GAP) / rows;
+  const cellSize = Math.min(GRID_MAX_CELL, Math.max(GRID_MIN_CELL, Math.floor(Math.min(byWidth, byHeight))));
   return { rows, cols, cellSize };
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-/** 캐릭터가 수달이라 네모 대신 물고기 한 마리 = 한 단. fill 은 currentColor 라
-    실제 색은 이 함수가 아니라 렌더링 쪽에서 svg.style.color 로 입힙니다. */
+/**
+ * 캐릭터가 수달이라 네모 대신 물고기 한 마리 = 한 단. 몸통 + 갈래
+ * 꼬리 + 등지느러미 + 눈(배경색으로 뚫은 구멍)으로 좀 더 물고기답게
+ * 그렸습니다. 몸통·꼬리·지느러미는 currentColor 라, 실제 색은 이
+ * 함수가 아니라 렌더링 쪽에서 svg.style.color 로 입힙니다.
+ */
 function makeFishCell() {
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
   svg.classList.add('row-cell');
+
   const body = document.createElementNS(SVG_NS, 'ellipse');
-  body.setAttribute('cx', '9');
-  body.setAttribute('cy', '12');
+  body.setAttribute('cx', '10');
+  body.setAttribute('cy', '13');
   body.setAttribute('rx', '7');
-  body.setAttribute('ry', '5');
+  body.setAttribute('ry', '6');
   body.setAttribute('fill', 'currentColor');
-  const tail = document.createElementNS(SVG_NS, 'polygon');
-  tail.setAttribute('points', '15,12 23,5 23,19');
+
+  // 갈래 꼬리 — 평평한 삼각형보다 물고기답게, 가운데를 안쪽으로 판 V자.
+  const tail = document.createElementNS(SVG_NS, 'path');
+  tail.setAttribute('d', 'M16,13 L23,5 L19,13 L23,21 Z');
   tail.setAttribute('fill', 'currentColor');
-  svg.append(body, tail);
+
+  const fin = document.createElementNS(SVG_NS, 'path');
+  fin.setAttribute('d', 'M8,7 L11,1 L13,7 Z');
+  fin.setAttribute('fill', 'currentColor');
+
+  // 눈 — 몸통 색으로 채우는 대신 배경색으로 "구멍"을 뚫어서, 어떤
+  // 실 색이 와도 항상 또렷하게 보이게 합니다.
+  const eye = document.createElementNS(SVG_NS, 'circle');
+  eye.setAttribute('cx', '5.5');
+  eye.setAttribute('cy', '11');
+  eye.setAttribute('r', '1.3');
+  eye.style.fill = 'var(--paper)';
+
+  svg.append(body, tail, fin, eye);
   return svg;
 }
 
