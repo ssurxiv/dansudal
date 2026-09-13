@@ -127,13 +127,13 @@ function setEyeShape(svg, shape) {
     eye.setAttribute('stroke-width', '1.3');
     eye.setAttribute('stroke-linecap', 'round');
     eye.setAttribute('stroke-linejoin', 'round');
-    eye.style.stroke = 'var(--paper)';
+    eye.style.stroke = 'var(--tank-water)';
   } else {
     eye = document.createElementNS(SVG_NS, 'circle');
     eye.setAttribute('cx', '5.5');
     eye.setAttribute('cy', '10.5');
     eye.setAttribute('r', '1.3');
-    eye.style.fill = 'var(--paper)';
+    eye.style.fill = 'var(--tank-water)';
   }
   eye.classList.add('fish-eye');
   svg.appendChild(eye);
@@ -165,7 +165,7 @@ function renderRowGrid(rows, target) {
   for (let i = 0; i < total; i++) {
     const knitRow = i + 1;
     const filled = knitRow <= rows;
-    cells[i].style.color = filled ? companion.colorForRow(knitRow) : 'var(--line)';
+    cells[i].style.color = filled ? companion.colorForRow(knitRow) : 'var(--tank-empty)';
 
     const messages = filled ? companion.notesForRow(knitRow).map((n) => n.message) : [];
     const shape = messages.some((m) => m.includes('코 줄임')) ? 'up'

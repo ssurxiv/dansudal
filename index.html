@@ -22,6 +22,12 @@
     /* 캐릭터의 밝은 크림색(배·볼)이 --card 와 거의 같은 톤이라
        묻혔던 문제라, 카드보다 확실히 밝은 흰색 계열로 띄웁니다. */
     --stage-bg: #fffaf1;
+    /* 어항 물빛 — 물고기 눈(구멍)이 여기에 맞춰야 크림색 배경일 때와
+       달리 파란 배경 위에서도 자연스럽습니다. */
+    --tank-water: #dff1f6;
+    /* 아직 안 뜬 단(빈 물고기)의 색 — 어항이 파란 톤이라 기존 베이지
+       (--line)는 붕 떠 보여서, 물속에 비친 듯한 옅은 파랑으로 바꿉니다. */
+    --tank-empty: #b7d9e3;
     --zoom: 1;
   }
   * { box-sizing: border-box; }
@@ -168,16 +174,50 @@
      넣어줍니다(고정 크기면 목표가 작을 때 그리드가 너무 작아 보임).
      칸이 그래도 넘치면 가로 스크롤 가능한 래퍼로 감쌉니다.
 
-     .tank 는 "어항" 느낌을 내려고 카드 톤(다른 .stat/.stash 와 같은
-     배경·테두리)으로 두른 바깥 래퍼입니다 — 패딩을 여기 둬야 main.js
-     가 재는 .row-grid-wrap 의 clientWidth 가 그 패딩만큼 줄어든 실제
-     공간을 정확히 반영합니다(패딩을 .row-grid-wrap 자신에 두면 그만큼
-     폭 계산이 어긋나 그리드가 패딩 안쪽으로 삐져나옵니다). */
+     .tank 는 진짜 어항처럼 — 위쪽은 물(연한 하늘색 그라데이션), 아래쪽
+     25%는 바닥 모래(따뜻한 베이지 계열이라 앱 전체 톤과도 이어집니다),
+     테두리는 유리 느낌으로 위쪽에 밝은 하이라이트를 얹었습니다.
+     패딩은 여기 둬야 main.js 가 재는 .row-grid-wrap 의 clientWidth 가
+     그 패딩만큼 줄어든 실제 공간을 정확히 반영합니다(패딩을
+     .row-grid-wrap 자신에 두면 그만큼 폭 계산이 어긋나 그리드가
+     패딩 안쪽으로 삐져나옵니다). */
   .tank {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 10px;
+    background: linear-gradient(
+      180deg,
+      #eef8fb 0%,
+      #cfe8f2 75%,
+      #e6cf9c 75%,
+      #d4b878 100%
+    );
+    border: 1px solid #a9cfdb;
+    border-radius: 12px;
     padding: 12px;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.7),
+      inset 0 -3px 6px rgba(0, 0, 0, 0.08);
+    position: relative;
+    overflow: hidden;
+  }
+  /* 물방울 두 개 — 은은한 장식이라 너무 튀지 않게 반투명하게. */
+  .tank::before,
+  .tank::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.55);
+    pointer-events: none;
+  }
+  .tank::before {
+    width: 8px;
+    height: 8px;
+    top: 14px;
+    right: 22%;
+  }
+  .tank::after {
+    width: 5px;
+    height: 5px;
+    top: 30px;
+    right: 30%;
   }
   .row-grid-wrap {
     overflow-x: auto;
