@@ -76,7 +76,6 @@
   }
 
   .stage-wrap {
-    position: relative;
     background: var(--stage-bg);
     border: 1px solid var(--line);
     border-radius: 14px;
@@ -104,13 +103,14 @@
   }
   /* 캐릭터 위에 뜨는 말풍선. 픽셀아트 캔버스(32px)로는 자유 텍스트를
      그릴 방법이 없어서 HTML/CSS로 따로 띄우고, 색으로 평소 멘트와
-     메모 알림을 구분합니다. */
+     알림을 구분합니다. absolute 로 캔버스 위에 얹으면 확대 배율에
+     따라 머리·귀와 겹칠 수 있어서, 일반 흐름에 놓아 캔버스를
+     아래로 밀어내는 방식으로 겹침 자체를 없앱니다. */
   .speech-bubble {
-    position: absolute;
-    top: clamp(10px, 3vw, 14px);
-    left: 50%;
-    transform: translateX(-50%);
+    position: relative;
+    display: inline-block;
     max-width: calc(100% - 28px);
+    margin: 0 0 14px;
     padding: 6px 12px;
     border-radius: 12px;
     background: #fff;
@@ -276,7 +276,7 @@
     background: var(--line);
   }
 
-  /* 단수 메모 패널 — 실 창고와 같은 카드 톤을 재사용합니다. */
+  /* 단수 알림 패널 — 실 창고와 같은 카드 톤을 재사용합니다. */
   .notes {
     background: var(--card);
     border: 1px solid var(--line);
@@ -406,7 +406,7 @@
     <button id="rip">✂️ 한 단 풀기</button>
     <button id="wind">🧵 실 감기</button>
     <button id="swap" type="button">🎨 실 색 바꾸기</button>
-    <button id="notesToggle" type="button">📝 메모</button>
+    <button id="notesToggle" type="button">🔔 알림</button>
     <button id="wear" hidden>🧣 입어보기</button>
     <button id="reset" type="button">🔁 초기화</button>
   </div>
@@ -417,7 +417,7 @@
   </div>
 
   <div class="notes" id="notesPanel" hidden>
-    <p class="hint">📝 특정 단이나 몇 단마다 알려줄 메모를 만들어보세요</p>
+    <p class="hint">🔔 특정 단이나 몇 단마다 알려줄 알림을 만들어보세요</p>
     <ul class="notes-list" id="notesList"></ul>
     <form id="noteForm" class="note-form">
       <div class="note-type">
@@ -426,7 +426,7 @@
       </div>
       <div class="note-fields">
         <input type="number" id="noteNumber" min="1" max="999" placeholder="단수" required />
-        <input type="text" id="noteMessage" maxlength="40" placeholder="메모 (예: 코 줄임)" required />
+        <input type="text" id="noteMessage" maxlength="40" placeholder="알림 (예: 코 줄임)" required />
       </div>
       <div class="note-presets">
         <button type="button" class="preset" data-msg="코 줄임">코 줄임</button>

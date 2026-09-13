@@ -301,7 +301,7 @@ const FINISHED_STATES = new Set(['complete', 'showoff', 'wrapping', 'wearing']);
 // 저장 데이터 스키마 버전. 필드 구성이 바뀌면 올립니다 — 나중에 여러
 // 프로젝트 지원 등으로 확장할 때 기존 사용자 데이터를 마이그레이션할
 // 유일한 단서라 지금부터 넣어둡니다.
-// v1 → v2: notes(단수 메모) 필드 추가. restore() 에서 v1 데이터는
+// v1 → v2: notes(단수 알림) 필드 추가. restore() 에서 v1 데이터는
 // 버리지 않고 notes: [] 로 보정합니다.
 const SCHEMA = 2;
 
@@ -309,7 +309,7 @@ let noteSeq = 0;
 const makeNoteId = () => `note-${Date.now().toString(36)}-${(noteSeq++).toString(36)}`;
 
 /**
- * 메모 입력을 검증하고 정규화합니다. row(특정 단)와 every(N단마다)는
+ * 알림 입력을 검증하고 정규화합니다. row(특정 단)와 every(N단마다)는
  * 정확히 하나만 있어야 하고, message 는 비어있지 않아야 합니다.
  * 조건을 못 만족하면 null 을 돌려줍니다.
  */
@@ -359,18 +359,18 @@ export class Companion {
     // 바닥·실뭉치는 구간을 나누지 않고 늘 currentColor 하나로 단순화합니다.
     this.colorSegments = [{ from: 0, color: this.initialColor }];
 
-    // 단수 메모 — 특정 단/N단마다 말풍선으로 알려줄 목록. 언제든
+    // 단수 알림 — 특정 단/N단마다 말풍선으로 알려줄 목록. 언제든
     // 추가·수정·삭제할 수 있는 사용자 데이터라 모델에 포함해 저장합니다.
     this.notes = options.notes ?? [];
-    // 메모가 여러 개 겹칠 때 순서대로 보여줄 큐 — 연출용 일시 상태라 저장하지 않습니다.
-    this.bubbleQueue = [];
+    // 알림이 떠 있는 동안엔 평소 진행 문구가 덮어쓰지 않도록 기억해두는
+    // 타이머 — 연출용 일시 상태라 저장하지 않습니다.
     this.bubbleTimer = null;
 
     this.flash = false;
     this.blink = false;
     this.onChange = options.onChange ?? (() => {});
     // (text, kind) 형태로 부릅니다. kind 는 기본 'chat'(평소 멘트)이고,
-    // 메모 알림만 'note' 를 넘겨 main.js 가 말풍선 색을 다르게 그립니다.
+    // 단수 알림만 'note' 를 넘겨 main.js 가 말풍선 색을 다르게 그립니다.
     this.onStatus = options.onStatus ?? (() => {});
     // Companion 은 localStorage 를 모릅니다 — "모델이 바뀌었다"만
     // 알리고, 실제 저장은 주입받은 콜백(main.js)이 담당합니다.
@@ -436,7 +436,7 @@ export class Companion {
   restore(data) {
     if (!data || typeof data !== 'object') return false;
     // v1 에는 notes 가 없었을 뿐 나머지 필드는 그대로 호환되므로,
-    // 버리지 않고 빈 메모 목록으로 보정해 v2로 올립니다.
+    // 버리지 않고 빈 알림 목록으로 보정해 v2로 올립니다.
     if (data.schema === 1) data = { ...data, schema: SCHEMA, notes: [] };
     if (data.schema !== SCHEMA) return false;
 
@@ -518,10 +518,12 @@ export class Companion {
       (n) => n.row === this.rows || (n.every && this.rows % n.every === 0)
     );
     if (hits.length) {
-      this.queueBubble(hits.map((n) => n.message));
-    } else if (this.bubbleQueue.length === 0 && !this.bubbleTimer) {
-      // 말풍선이 재생 중일 때는 평범한 진행 문구로 덮어쓰지 않습니다.
-      // 재생이 끝나면(advanceBubble 이 bubbleTimer 를 비우면) 다시 정상 표시됩니다.
+      // 한 단에 알림이 여러 개 겹치면 순서대로 띄우는 대신 쉼표로 이어
+      // 한 번에 보여줍니다 — 기다릴 필요 없이 한눈에 다 보이는 편이 낫습니다.
+      this.showNote(hits.map((n) => n.message).join(', '));
+    } else if (!this.bubbleTimer) {
+      // 알림이 떠 있는 동안(showNote 의 표시 시간)엔 평범한 진행 문구로
+      // 덮어쓰지 않습니다. 시간이 지나 bubbleTimer 가 비면 다시 정상 표시됩니다.
       if (!grew && this.knitLength < want && this.ball <= 0) {
         this.onStatus('실뭉치가 비었습니다. 실을 감아주세요.');
       } else {
@@ -642,9 +644,9 @@ export class Companion {
     this.enter('idle');
   }
 
-  /* ── 단수 메모 ────────────────────────────────────────── */
+  /* ── 단수 알림 ────────────────────────────────────────── */
 
-  /** 새 메모를 추가합니다. 무효하면(메시지 없음, row/every 둘 다이거나 둘 다 아님) null. */
+  /** 새 알림을 추가합니다. 무효하면(메시지 없음, row/every 둘 다이거나 둘 다 아님) null. */
   addNote(input) {
     const note = normalizeNote(input);
     if (!note) return null;
@@ -653,7 +655,7 @@ export class Companion {
     return note.id;
   }
 
-  /** 기존 메모를 교체합니다. id가 없거나 입력이 무효하면 false. */
+  /** 기존 알림을 교체합니다. id가 없거나 입력이 무효하면 false. */
   updateNote(id, input) {
     const idx = this.notes.findIndex((n) => n.id === id);
     if (idx === -1) return false;
@@ -671,24 +673,15 @@ export class Companion {
   }
 
   /**
-   * 한 단에 메모가 여러 개 겹치면 말풍선을 동시에 띄우지 않고 순서대로
-   * 하나씩 보여줍니다. onStatus 에 'note' 종류를 넘겨서, main.js 가
-   * 말풍선 색으로 평소 멘트와 구분해 그릴 수 있게 합니다. bubbleQueue
+   * 알림 말풍선을 띄웁니다. onStatus 에 'note' 종류를 넘겨서 main.js 가
+   * 말풍선 색으로 평소 멘트와 구분해 그릴 수 있게 합니다. bubbleTimer
    * 는 연출용 일시 상태라 serialize() 대상이 아닙니다 — blink 와 같은
    * 취급입니다.
    */
-  queueBubble(messages) {
-    this.bubbleQueue.push(...messages);
-    if (!this.bubbleTimer) this.advanceBubble();
-  }
-
-  advanceBubble() {
-    if (this.bubbleQueue.length === 0) {
-      this.bubbleTimer = null;
-      return;
-    }
-    this.onStatus(this.bubbleQueue.shift(), 'note');
-    this.bubbleTimer = setTimeout(() => this.advanceBubble(), 2200);
+  showNote(message) {
+    clearTimeout(this.bubbleTimer);
+    this.onStatus(message, 'note');
+    this.bubbleTimer = setTimeout(() => { this.bubbleTimer = null; }, 2200);
   }
 
   /* ── 상태 기계 ────────────────────────────────────────── */

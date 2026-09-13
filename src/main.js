@@ -38,7 +38,7 @@ const statusEl = $('status');
 
 /**
  * 캐릭터의 말풍선(+스크린리더용 상태줄)을 갱신합니다. kind 'chat'은
- * 평소 멘트, 'note'는 단수 메모 알림 — 말풍선 색으로 구분됩니다.
+ * 평소 멘트, 'note'는 단수 알림 — 말풍선 색으로 구분됩니다.
  */
 function setStatus(text, kind = 'chat') {
   statusEl.textContent = text; // 화면에는 안 보임(.sr-only), 스크린리더용
@@ -167,7 +167,7 @@ swapBtn.addEventListener('click', () => {
   stashPanel.hidden = !stashPanel.hidden;
 });
 
-// 단수 메모 — 특정 단/N단마다 말풍선으로 알려줄 목록. 목록 렌더링은
+// 단수 알림 — 특정 단/N단마다 말풍선으로 알려줄 목록. 목록 렌더링은
 // onChange 안에서 매번 다시 그리므로(위 참조), 여기는 패널 토글과
 // 추가/수정/삭제 폼 연결만 담당합니다.
 let editingNoteId = null;
@@ -246,7 +246,7 @@ noteForm.addEventListener('submit', (e) => {
     : companion.addNote(input) !== null;
 
   if (ok) resetNoteForm();
-  else setStatus('메모를 확인해주세요 (단수와 메모 내용을 입력하세요)');
+  else setStatus('알림을 확인해주세요 (단수와 알림 내용을 입력하세요)');
 });
 
 wearBtn.addEventListener('click', () => {
