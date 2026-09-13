@@ -307,6 +307,13 @@ const CONDITIONS = {
 
 const FINISHED_STATES = new Set(['complete', 'showoff', 'wrapping', 'wearing']);
 
+// 풀기(dropRow)는 애니메이션의 특정 프레임(rip 의 f3)에서만 실제로
+// 실행됩니다. ripRow() 를 애니메이션 도중 다시 부르면 enter() 가
+// 진행 중이던 상태를 처음부터 재시작시켜 그 dropRow 가 아예 씹힙니다
+// — 백스페이스를 빠르게 연타하면 클릭 수보다 적게 풀리는 원인이라
+// 이 상태들에서는 새 ripRow() 요청을 무시합니다.
+const RIPPING_STATES = new Set(['notice', 'pullNeedle', 'rip']);
+
 // 저장 데이터 스키마 버전. 필드 구성이 바뀌면 올립니다 — 나중에 여러
 // 프로젝트 지원 등으로 확장할 때 기존 사용자 데이터를 마이그레이션할
 // 유일한 단서라 지금부터 넣어둡니다.
@@ -390,6 +397,10 @@ export class Companion {
     this.lastStep = 0;
     this.lastBlink = 0;
     this.running = false;
+    // 풀기 애니메이션이 재생 중일 때 백스페이스를 더 누르면, 그냥
+    // 무시하는 대신 여기 쌓아뒀다가 애니메이션이 끝날 때마다 하나씩
+    // 이어서 처리합니다 — 연타한 횟수만큼 정확히 풀립니다.
+    this.pendingRips = 0;
   }
 
   emit() {
@@ -552,11 +563,19 @@ export class Companion {
 
   ripRow() {
     if (this.rows <= 0) {
+      this.pendingRips = 0;
       this.onStatus('풀 게 없습니다');
       return;
     }
     if (this.pile >= S.MAX_PILE) {
+      this.pendingRips = 0;
       this.onStatus('바닥이 꽉 찼습니다. 실을 감아주세요.');
+      return;
+    }
+    if (RIPPING_STATES.has(this.state)) {
+      // 재진입하면 enter() 가 진행 중이던 애니메이션을 처음부터
+      // 되돌려 dropRow 가 씹힌다 — 지금 끼어들지 않고 큐에 쌓아둔다.
+      this.pendingRips += 1;
       return;
     }
     this.onStatus('한 단 푸는 중');
@@ -712,6 +731,12 @@ export class Companion {
     this.runFrameActions(def, 0);
     this.emit();
     this.render();
+    // 풀기 애니메이션이 막 끝나 idle 로 돌아왔고 큐에 쌓인 요청이
+    // 있으면, 그만큼 이어서 자동으로 풉니다(연타한 횟수만큼 정확히).
+    if (name === 'idle' && this.pendingRips > 0) {
+      this.pendingRips -= 1;
+      this.ripRow();
+    }
   }
 
   /** def.next 는 보통 문자열이지만, knit 처럼 모델을 봐야 갈림길이

@@ -288,14 +288,16 @@ export const needleFrames = [
 
 /**
  * 마개는 각도를 따라 붙습니다. 정면 고정 도장을 찍으면 납작해집니다.
- * 겹선(needles() 의 offset ±1) 양쪽 끝을 다 덮어야 합니다 — tip-1만
- * 덮으면 tip+1 쪽 테두리 점(어두운 갈색, 거의 검정으로 보임)이
- * 마개 옆에 남아 이상한 점처럼 보였습니다.
+ * ㄴ자 모양(하트를 흉내낸 모양, tip·tip-1·tip+inward 세 점)이
+ * 원래 의도입니다 — tip+1 까지 'h'로 채우면 ㄴ 대신 ㅓ 모양이
+ * 됩니다. 다만 겹선(needles() 의 offset ±1) 중 tip+1 쪽 끝은
+ * 지우지 않으면 어두운 갈색(거의 검정) 점이 마개 옆에 남으므로,
+ * 색칠하지 않고 투명 처리만 해서 지웁니다.
  */
 function stopper(buf, tip, inward) {
+  put(buf, tip[0], tip[1] + 1, '.');
   put(buf, tip[0], tip[1], 'h');
   put(buf, tip[0], tip[1] - 1, 'h');
-  put(buf, tip[0], tip[1] + 1, 'h');
   put(buf, tip[0] + inward, tip[1], 'h');
 }
 
