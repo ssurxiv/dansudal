@@ -280,6 +280,15 @@ const ACTIONS = {
       c.knitLength -= 1;
       c.pile += 1;
     }
+    // 풀어서 되돌아간 단도 알림 대상일 수 있습니다 — "한 단 푸는 중"은
+    // 풀기 동작이 실제로 진행 중일 때만 보여야 하니, 여기서 실제로
+    // 단이 줄어든 뒤 알림이 있으면 그걸로, 없으면 완료 문구로 바꿉니다.
+    const noteMessage = c.matchingNoteMessage(c.rows);
+    if (noteMessage) {
+      c.showNote(noteMessage);
+    } else if (!c.bubbleTimer) {
+      c.onStatus('한 단 풀었습니다');
+    }
     c.emit();
   },
 
@@ -298,10 +307,38 @@ const CONDITIONS = {
 
 const FINISHED_STATES = new Set(['complete', 'showoff', 'wrapping', 'wearing']);
 
+// 풀기(dropRow)는 애니메이션의 특정 프레임(rip 의 f3)에서만 실제로
+// 실행됩니다. ripRow() 를 애니메이션 도중 다시 부르면 enter() 가
+// 진행 중이던 상태를 처음부터 재시작시켜 그 dropRow 가 아예 씹힙니다
+// — 백스페이스를 빠르게 연타하면 클릭 수보다 적게 풀리는 원인이라
+// 이 상태들에서는 새 ripRow() 요청을 무시합니다.
+const RIPPING_STATES = new Set(['notice', 'pullNeedle', 'rip']);
+
 // 저장 데이터 스키마 버전. 필드 구성이 바뀌면 올립니다 — 나중에 여러
 // 프로젝트 지원 등으로 확장할 때 기존 사용자 데이터를 마이그레이션할
 // 유일한 단서라 지금부터 넣어둡니다.
-const SCHEMA = 1;
+// v1 → v2: notes(단수 알림) 필드 추가. restore() 에서 v1 데이터는
+// 버리지 않고 notes: [] 로 보정합니다.
+const SCHEMA = 2;
+
+let noteSeq = 0;
+const makeNoteId = () => `note-${Date.now().toString(36)}-${(noteSeq++).toString(36)}`;
+
+/**
+ * 알림 입력을 검증하고 정규화합니다. row(특정 단)와 every(N단마다)는
+ * 정확히 하나만 있어야 하고, message 는 비어있지 않아야 합니다.
+ * 조건을 못 만족하면 null 을 돌려줍니다.
+ */
+function normalizeNote(input, id) {
+  const row = Number.isFinite(input?.row) ? Math.floor(input.row) : null;
+  const every = Number.isFinite(input?.every) ? Math.floor(input.every) : null;
+  const message = typeof input?.message === 'string' ? input.message.trim() : '';
+  if (!message) return null;
+  const hasRow = row !== null && row >= 1;
+  const hasEvery = every !== null && every >= 1;
+  if (hasRow === hasEvery) return null; // 둘 다 없거나 둘 다 있으면 무효
+  return { id: id ?? makeNoteId(), row: hasRow ? row : null, every: hasEvery ? every : null, message };
+}
 
 /* 벗고 다시 자랑할 때 매번 같은 말이면 심심하니 랜덤으로 고릅니다. */
 const SHOWOFF_LINES = ['예쁘죠?', '뿌듯하다!', '짜잔!', '완전 마음에 들어!', '이야, 잘 됐다!'];
@@ -338,9 +375,18 @@ export class Companion {
     // 바닥·실뭉치는 구간을 나누지 않고 늘 currentColor 하나로 단순화합니다.
     this.colorSegments = [{ from: 0, color: this.initialColor }];
 
+    // 단수 알림 — 특정 단/N단마다 말풍선으로 알려줄 목록. 언제든
+    // 추가·수정·삭제할 수 있는 사용자 데이터라 모델에 포함해 저장합니다.
+    this.notes = options.notes ?? [];
+    // 알림이 떠 있는 동안엔 평소 진행 문구가 덮어쓰지 않도록 기억해두는
+    // 타이머 — 연출용 일시 상태라 저장하지 않습니다.
+    this.bubbleTimer = null;
+
     this.flash = false;
     this.blink = false;
     this.onChange = options.onChange ?? (() => {});
+    // (text, kind) 형태로 부릅니다. kind 는 기본 'chat'(평소 멘트)이고,
+    // 단수 알림만 'note' 를 넘겨 main.js 가 말풍선 색을 다르게 그립니다.
     this.onStatus = options.onStatus ?? (() => {});
     // Companion 은 localStorage 를 모릅니다 — "모델이 바뀌었다"만
     // 알리고, 실제 저장은 주입받은 콜백(main.js)이 담당합니다.
@@ -351,6 +397,10 @@ export class Companion {
     this.lastStep = 0;
     this.lastBlink = 0;
     this.running = false;
+    // 풀기 애니메이션이 재생 중일 때 백스페이스를 더 누르면, 그냥
+    // 무시하는 대신 여기 쌓아뒀다가 애니메이션이 끝날 때마다 하나씩
+    // 이어서 처리합니다 — 연타한 횟수만큼 정확히 풀립니다.
+    this.pendingRips = 0;
   }
 
   emit() {
@@ -368,6 +418,7 @@ export class Companion {
       usedBall: this.usedBall,
       totalBall: this.totalBall,
       currentColor: this.currentColor,
+      notes: this.notes,
       percent: Math.min(100, Math.round((this.rows / this.target) * 100)),
       finished: this.rows >= this.target,
       wearing: this.state === 'wearing' || this.state === 'wrapping'
@@ -392,7 +443,8 @@ export class Companion {
       totalBall: this.totalBall,
       initialColor: this.initialColor,
       currentColor: this.currentColor,
-      colorSegments: this.colorSegments
+      colorSegments: this.colorSegments,
+      notes: this.notes
     };
   }
 
@@ -402,7 +454,11 @@ export class Companion {
    * 어중간하게 복원된 상태가 더 찾기 어려운 버그를 만듭니다.
    */
   restore(data) {
-    if (!data || typeof data !== 'object' || data.schema !== SCHEMA) return false;
+    if (!data || typeof data !== 'object') return false;
+    // v1 에는 notes 가 없었을 뿐 나머지 필드는 그대로 호환되므로,
+    // 버리지 않고 빈 알림 목록으로 보정해 v2로 올립니다.
+    if (data.schema === 1) data = { ...data, schema: SCHEMA, notes: [] };
+    if (data.schema !== SCHEMA) return false;
 
     const isNonNegNumber = (v) => Number.isFinite(v) && v >= 0;
     if (!isNonNegNumber(data.target) || data.target < 1) return false;
@@ -420,6 +476,10 @@ export class Companion {
     for (const seg of data.colorSegments) {
       if (!seg || !Number.isFinite(seg.from) || typeof seg.color !== 'string') return false;
     }
+    if (!Array.isArray(data.notes)) return false;
+    for (const n of data.notes) {
+      if (!normalizeNote(n, n?.id)) return false;
+    }
 
     this.target = Math.floor(data.target);
     this.rows = Math.floor(data.rows);
@@ -433,6 +493,7 @@ export class Companion {
     this.initialColor = data.initialColor;
     this.currentColor = data.currentColor;
     this.colorSegments = data.colorSegments.map((seg) => ({ from: seg.from, color: seg.color }));
+    this.notes = data.notes.map((n) => normalizeNote(n, n.id));
 
     // complete 는 "방금 완성한 순간"에만 의미가 있는 반짝임 연출이라,
     // 페이지를 열 때마다 재생되면 성가십니다. showoff/idle 로 바로 갑니다.
@@ -460,6 +521,17 @@ export class Companion {
 
   /* ── 조작 ─────────────────────────────────────────────── */
 
+  /**
+   * row 에 걸리는 알림 문구들을 쉼표로 합쳐 돌려줍니다(없으면 null).
+   * addRow() 로 뜨며 도달할 때뿐 아니라 dropRow() 로 풀어서 되돌아갈
+   * 때도 같은 판정을 씁니다 — 어느 방향으로든 그 단을 지나가면 알림이
+   * 필요합니다.
+   */
+  matchingNoteMessage(row) {
+    const hits = this.notes.filter((n) => n.row === row || (n.every && row % n.every === 0));
+    return hits.length ? hits.map((n) => n.message).join(', ') : null;
+  }
+
   addRow() {
     if (this.rows >= this.target) {
       this.onStatus('목표 단수에 도달했습니다');
@@ -473,10 +545,17 @@ export class Companion {
       this.ball -= 1;
       grew = true;
     }
-    if (!grew && this.knitLength < want && this.ball <= 0) {
-      this.onStatus('실뭉치가 비었습니다. 실을 감아주세요.');
-    } else {
-      this.onStatus(this.rows >= this.target ? '다 떴다!' : '뜨는 중');
+    const noteMessage = this.matchingNoteMessage(this.rows);
+    if (noteMessage) {
+      this.showNote(noteMessage);
+    } else if (!this.bubbleTimer) {
+      // 알림이 떠 있는 동안(showNote 의 표시 시간)엔 평범한 진행 문구로
+      // 덮어쓰지 않습니다. 시간이 지나 bubbleTimer 가 비면 다시 정상 표시됩니다.
+      if (!grew && this.knitLength < want && this.ball <= 0) {
+        this.onStatus('실뭉치가 비었습니다. 실을 감아주세요.');
+      } else {
+        this.onStatus(this.rows >= this.target ? '다 떴다!' : '뜨는 중');
+      }
     }
     this.emit();
     this.enter(ENTRY.knit);
@@ -484,11 +563,19 @@ export class Companion {
 
   ripRow() {
     if (this.rows <= 0) {
+      this.pendingRips = 0;
       this.onStatus('풀 게 없습니다');
       return;
     }
     if (this.pile >= S.MAX_PILE) {
+      this.pendingRips = 0;
       this.onStatus('바닥이 꽉 찼습니다. 실을 감아주세요.');
+      return;
+    }
+    if (RIPPING_STATES.has(this.state)) {
+      // 재진입하면 enter() 가 진행 중이던 애니메이션을 처음부터
+      // 되돌려 dropRow 가 씹힌다 — 지금 끼어들지 않고 큐에 쌓아둔다.
+      this.pendingRips += 1;
       return;
     }
     this.onStatus('한 단 푸는 중');
@@ -588,8 +675,49 @@ export class Companion {
     this.usedBall = 0;
     this.currentColor = this.initialColor;
     this.colorSegments = [{ from: 0, color: this.initialColor }];
+    this.notes = []; // 등록해둔 알림도 새 프로젝트를 시작하는 셈이니 함께 비웁니다.
     this.onStatus(pickLine(IDLE_GREETINGS));
     this.enter('idle');
+  }
+
+  /* ── 단수 알림 ────────────────────────────────────────── */
+
+  /** 새 알림을 추가합니다. 무효하면(메시지 없음, row/every 둘 다이거나 둘 다 아님) null. */
+  addNote(input) {
+    const note = normalizeNote(input);
+    if (!note) return null;
+    this.notes.push(note);
+    this.emit();
+    return note.id;
+  }
+
+  /** 기존 알림을 교체합니다. id가 없거나 입력이 무효하면 false. */
+  updateNote(id, input) {
+    const idx = this.notes.findIndex((n) => n.id === id);
+    if (idx === -1) return false;
+    const note = normalizeNote(input, id);
+    if (!note) return false;
+    this.notes[idx] = note;
+    this.emit();
+    return true;
+  }
+
+  removeNote(id) {
+    const before = this.notes.length;
+    this.notes = this.notes.filter((n) => n.id !== id);
+    if (this.notes.length !== before) this.emit();
+  }
+
+  /**
+   * 알림 말풍선을 띄웁니다. onStatus 에 'note' 종류를 넘겨서 main.js 가
+   * 말풍선 색으로 평소 멘트와 구분해 그릴 수 있게 합니다. bubbleTimer
+   * 는 연출용 일시 상태라 serialize() 대상이 아닙니다 — blink 와 같은
+   * 취급입니다.
+   */
+  showNote(message) {
+    clearTimeout(this.bubbleTimer);
+    this.onStatus(message, 'note');
+    this.bubbleTimer = setTimeout(() => { this.bubbleTimer = null; }, 2200);
   }
 
   /* ── 상태 기계 ────────────────────────────────────────── */
@@ -603,6 +731,12 @@ export class Companion {
     this.runFrameActions(def, 0);
     this.emit();
     this.render();
+    // 풀기 애니메이션이 막 끝나 idle 로 돌아왔고 큐에 쌓인 요청이
+    // 있으면, 그만큼 이어서 자동으로 풉니다(연타한 횟수만큼 정확히).
+    if (name === 'idle' && this.pendingRips > 0) {
+      this.pendingRips -= 1;
+      this.ripRow();
+    }
   }
 
   /** def.next 는 보통 문자열이지만, knit 처럼 모델을 봐야 갈림길이

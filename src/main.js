@@ -25,6 +25,26 @@ const resetBtn = $('reset');
 const ballMinusBtn = $('ballMinus');
 const ballPlusBtn = $('ballPlus');
 const totalBallInput = $('totalBall');
+const notesToggleBtn = $('notesToggle');
+const notesPanel = $('notesPanel');
+const notesList = $('notesList');
+const noteForm = $('noteForm');
+const noteNumberInput = $('noteNumber');
+const noteMessageInput = $('noteMessage');
+const noteSubmitBtn = $('noteSubmit');
+const noteCancelBtn = $('noteCancel');
+const bubbleEl = $('bubble');
+const statusEl = $('status');
+
+/**
+ * 캐릭터의 말풍선(+스크린리더용 상태줄)을 갱신합니다. kind 'chat'은
+ * 평소 멘트, 'note'는 단수 알림 — 말풍선 색으로 구분됩니다.
+ */
+function setStatus(text, kind = 'chat') {
+  statusEl.textContent = text; // 화면에는 안 보임(.sr-only), 스크린리더용
+  bubbleEl.textContent = text;
+  bubbleEl.className = `speech-bubble kind-${kind}`;
+}
 
 // UI는 Companion 내부를 직접 읽지 않으므로, ± 버튼이 현재 usedBall
 // 값을 알아야 할 때 쓰도록 최근 snapshot 을 여기 보관해둡니다.
@@ -75,10 +95,9 @@ const companion = new Companion(canvas, {
     addBtn.hidden = ripBtn.hidden = windBtn.hidden = swapBtn.hidden = s.finished;
     if (s.finished) stashPanel.hidden = true;
     resetBtn.textContent = s.finished ? '🔁 새로 뜨기' : '🔁 초기화';
+    renderNotesList(s.notes);
   },
-  onStatus(text) {
-    $('status').textContent = text;
-  }
+  onStatus: setStatus
 });
 
 companion.restore(loadState());
@@ -146,6 +165,90 @@ renderStash();
 
 swapBtn.addEventListener('click', () => {
   stashPanel.hidden = !stashPanel.hidden;
+});
+
+// 단수 알림 — 특정 단/N단마다 말풍선으로 알려줄 목록. 목록 렌더링은
+// onChange 안에서 매번 다시 그리므로(위 참조), 여기는 패널 토글과
+// 추가/수정/삭제 폼 연결만 담당합니다.
+let editingNoteId = null;
+
+function resetNoteForm() {
+  editingNoteId = null;
+  noteForm.reset();
+  noteSubmitBtn.textContent = '추가';
+  noteCancelBtn.hidden = true;
+}
+
+function startEditNote(note) {
+  editingNoteId = note.id;
+  const type = note.row != null ? 'row' : 'every';
+  noteForm.querySelector(`input[name="noteType"][value="${type}"]`).checked = true;
+  noteNumberInput.value = note.row ?? note.every;
+  noteMessageInput.value = note.message;
+  noteSubmitBtn.textContent = '수정';
+  noteCancelBtn.hidden = false;
+  notesPanel.hidden = false;
+}
+
+function renderNotesList(notes) {
+  notesList.innerHTML = '';
+  notes.forEach((note) => {
+    const li = document.createElement('li');
+    const label = note.row != null ? `${note.row}단` : `매 ${note.every}단`;
+
+    const text = document.createElement('span');
+    text.className = 'note-text';
+    text.textContent = `${label}: ${note.message}`;
+
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.textContent = '✏️';
+    editBtn.setAttribute('aria-label', '알림 수정');
+    editBtn.addEventListener('click', () => startEditNote(note));
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.textContent = '🗑️';
+    delBtn.setAttribute('aria-label', '알림 삭제');
+    delBtn.addEventListener('click', () => {
+      companion.removeNote(note.id);
+      if (editingNoteId === note.id) resetNoteForm();
+    });
+
+    const actions = document.createElement('span');
+    actions.className = 'note-actions';
+    actions.append(editBtn, delBtn);
+
+    li.append(text, actions);
+    notesList.appendChild(li);
+  });
+}
+
+notesToggleBtn.addEventListener('click', () => {
+  notesPanel.hidden = !notesPanel.hidden;
+});
+
+noteForm.querySelectorAll('.preset').forEach((btn) => {
+  btn.addEventListener('click', () => { noteMessageInput.value = btn.dataset.msg; });
+});
+
+noteCancelBtn.addEventListener('click', resetNoteForm);
+
+noteForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const type = noteForm.querySelector('input[name="noteType"]:checked').value;
+  const num = parseInt(noteNumberInput.value, 10);
+  const message = noteMessageInput.value.trim();
+  const input = type === 'row'
+    ? { row: num, every: null, message }
+    : { row: null, every: num, message };
+
+  const ok = editingNoteId
+    ? companion.updateNote(editingNoteId, input)
+    : companion.addNote(input) !== null;
+
+  if (ok) resetNoteForm();
+  else setStatus('알림을 확인해주세요 (단수와 알림 내용을 입력하세요)');
 });
 
 wearBtn.addEventListener('click', () => {

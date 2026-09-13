@@ -213,17 +213,29 @@ export const bang = pad({
 
 /**
  * 한 단 풀기 중 오른쪽 바늘을 잠깐 귀 뒤에 꽂아둔 모습. 렌더 순서상
- * 귀·머리보다 먼저(behind) 그려서 끝만 삐죽 나오고 나머지는 가려지게
- * 합니다 — 화면 밖으로 미끄러져 사라지던 것보다 자연스럽습니다.
+ * 귀·머리보다 먼저(behind) 그려서 밑동은 가려지고 끝만 귀 위로
+ * 삐죽 튀어나오게 합니다 — 화면 밖으로 미끄러져 사라지던 것보다
+ * 자연스럽습니다.
+ *
+ * base 는 droop 귀 상자(행5~7, 열26~28) 한가운데, tip 은 거의 수직
+ * 위(귀보다 위)로 둡니다. 대각선으로 옆(31,2)까지 뉘어놨던 이전
+ * 버전은 "귀 위로 솟음"이 아니라 "옆으로 삐져나옴"으로 보였습니다.
+ * 거의 수직인 선이라 두께를 만드는 겹선도 세로(y)가 아니라
+ * 가로(x)로 ±1 오프셋해야 합니다 — 세로로 오프셋하면 선 방향과
+ * 같은 축이라 두께가 거의 안 생깁니다.
  */
 export function earNeedle() {
   const buf = buffer();
-  const base = [23, 5];
+  const base = [27, 7];
   const tip = [28, 1];
-  line(buf, base[0], base[1] + 1, tip[0], tip[1] + 1, 'g');
-  line(buf, base[0], base[1] - 1, tip[0], tip[1] - 1, 'g');
+  line(buf, base[0] + 1, base[1], tip[0] + 1, tip[1], 'g');
+  line(buf, base[0] - 1, base[1], tip[0] - 1, tip[1], 'g');
   line(buf, base[0], base[1], tip[0], tip[1], 'n');
+  // 마개도 겹선 두 끝(tip±1)까지 덮어야 옆에 어두운 테두리 점이
+  // 남지 않습니다 — needles() 의 stopper() 와 같은 이유의 수정입니다.
+  put(buf, tip[0] - 1, tip[1], 'h');
   put(buf, tip[0], tip[1], 'h');
+  put(buf, tip[0] + 1, tip[1], 'h');
   return pad(buf);
 }
 
@@ -274,8 +286,16 @@ export const needleFrames = [
   { lLong: [2, 26], lShort: [13, 20], rLong: [29, 27], rShort: [18, 20] }
 ];
 
-/** 마개는 각도를 따라 붙습니다. 정면 고정 도장을 찍으면 납작해집니다. */
+/**
+ * 마개는 각도를 따라 붙습니다. 정면 고정 도장을 찍으면 납작해집니다.
+ * ㄴ자 모양(하트를 흉내낸 모양, tip·tip-1·tip+inward 세 점)이
+ * 원래 의도입니다 — tip+1 까지 'h'로 채우면 ㄴ 대신 ㅓ 모양이
+ * 됩니다. 다만 겹선(needles() 의 offset ±1) 중 tip+1 쪽 끝은
+ * 지우지 않으면 어두운 갈색(거의 검정) 점이 마개 옆에 남으므로,
+ * 색칠하지 않고 투명 처리만 해서 지웁니다.
+ */
 function stopper(buf, tip, inward) {
+  put(buf, tip[0], tip[1] + 1, '.');
   put(buf, tip[0], tip[1], 'h');
   put(buf, tip[0], tip[1] - 1, 'h');
   put(buf, tip[0] + inward, tip[1], 'h');
