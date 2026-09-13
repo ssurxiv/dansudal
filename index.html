@@ -161,17 +161,28 @@
     color: var(--muted);
     margin-bottom: 6px;
   }
-  .track {
-    height: 6px;
-    background: var(--line);
-    border-radius: 3px;
-    overflow: hidden;
+  /* 진행 그리드 — GitHub 잔디 컨셉을 캐릭터(수달)에 맞게, 칸 대신
+     물고기 한 마리가 한 단. 뜬 단은 그 지점의 실 색(배색 이력)으로,
+     아직 안 뜬 단은 옅은 색으로 표시합니다. 행/열 수와 칸 크기는
+     목표 단수·화면 너비에 맞춰 main.js 가 계산해 인라인 스타일로
+     넣어줍니다(고정 크기면 목표가 작을 때 그리드가 너무 작아 보임).
+     칸이 그래도 넘치면 가로 스크롤 가능한 래퍼로 감쌉니다. */
+  .row-grid-wrap {
+    overflow-x: auto;
+    padding-bottom: 2px;
   }
-  .fill {
+  .row-grid {
+    display: grid;
+    /* grid-auto-flow 는 기본값 row — 왼쪽부터 채우다 한 줄이 차면
+       다음 줄로, 일반 텍스트 줄바꿈과 같은 흐름입니다. 열 수·칸
+       크기는 main.js 가 카드 너비에 맞춰 인라인 스타일로 넣습니다. */
+    gap: 3px;
+  }
+  .row-cell {
+    width: 100%;
     height: 100%;
-    width: 0;
-    background: var(--yarn);
-    transition: width 160ms ease-out;
+    display: block;
+    transition: color 160ms ease-out;
   }
 
   .stats {
@@ -362,6 +373,12 @@
   }
   .note-fields input[type="number"] { width: 70px; }
   .note-fields input[type="text"] { flex: 1 1 auto; min-width: 0; }
+  /* 매 N단 반복의 시작~끝 구간 입력. 비워두면 1~총 단수로 취급됩니다. */
+  .note-range input[type="number"] { flex: 1 1 auto; width: auto; min-width: 0; }
+  .note-range-sep { color: var(--muted); flex: none; align-self: center; }
+  /* .note-fields 의 display:flex 가 hidden 속성의 기본 display:none 을
+     덮어쓰므로, id 선택자로 확실히 이깁니다. */
+  #noteRange[hidden] { display: none; }
   .note-presets {
     display: flex;
     gap: 6px;
@@ -394,6 +411,18 @@
 </style>
 </head>
 <body>
+<!-- 진행 그리드의 물고기 전부가 공유하는 클립 경로. 아래쪽 반을
+     어둡게 칠하는 명암용 사각형을 이 모양으로 잘라내는 데 씁니다.
+     body/tail 좌표는 main.js 의 makeFishCell() 과 반드시 맞춰야
+     합니다 — 둘이 다르면 명암이 물고기 밖으로 삐져나옵니다. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <clipPath id="fishClip" clipPathUnits="userSpaceOnUse">
+      <path d="M3,12 C3,6.2 9,5 13,6 C16,6.8 16.5,9.6 16.5,12 C16.5,14.4 16,17.2 13,18 C9,19 3,17.8 3,12 Z" />
+      <polygon points="16,12 22,7 22,17" />
+    </clipPath>
+  </defs>
+</svg>
 <main>
   <div class="page-head">
     <h1>단수달 🦦</h1>
@@ -414,7 +443,9 @@
     <div class="progress-head">
       <span>진행</span><span id="percent">0%</span>
     </div>
-    <div class="track"><div class="fill" id="bar"></div></div>
+    <div class="row-grid-wrap">
+      <div class="row-grid" id="rowGrid"></div>
+    </div>
   </div>
 
   <dl class="stats">
@@ -444,7 +475,7 @@
     <button id="swap" type="button">🎨 실 색 바꾸기</button>
     <button id="notesToggle" type="button">🔔 알림</button>
     <button id="wear" hidden>🧣 입어보기</button>
-    <button id="reset" type="button">🔁 초기화</button>
+    <button id="reset" type="button">🔁 새로 뜨기</button>
   </div>
 
   <div class="stash" id="stash" hidden>
@@ -463,6 +494,11 @@
       <div class="note-fields">
         <input type="number" id="noteNumber" min="1" max="999" placeholder="단수" required />
         <input type="text" id="noteMessage" maxlength="40" placeholder="알림 (예: 코 줄임)" required />
+      </div>
+      <div class="note-fields note-range" id="noteRange" hidden>
+        <input type="number" id="noteFrom" min="1" max="999" placeholder="시작 단(기본 1)" />
+        <span class="note-range-sep">~</span>
+        <input type="number" id="noteTo" min="1" max="999" placeholder="끝 단(기본 총 단수)" />
       </div>
       <div class="note-presets">
         <button type="button" class="preset" data-msg="코 줄임">코 줄임</button>
