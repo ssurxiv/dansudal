@@ -228,11 +228,21 @@
     border: 1px solid var(--line);
     border-radius: 10px;
     cursor: pointer;
+    transition: transform 80ms ease-out, background-color 120ms ease-out;
   }
   button:hover { background: var(--card); }
+  button:active { transform: translateY(1px); }
   button:focus-visible { outline: 2px solid var(--yarn); outline-offset: 2px; }
-  #add { background: var(--yarn); border-color: var(--yarn); color: #fff; }
-  #add:hover { filter: brightness(1.08); }
+  /* 기본 액션(한 단 뜨기) — 진한 색 배경 + 흰 글씨는 대비는 나쁘지
+     않지만 카드 위주의 파스텔 톤 화면에서 혼자 튀어 보였습니다.
+     연한 민트 배경 + 진한 초록 글씨로 바꿔 어느 화면에서도 또렷하게
+     읽히면서 전체 톤과 어울리게 합니다. */
+  #add {
+    background: #e3f2ec;
+    border: 2px solid var(--yarn);
+    color: var(--yarn);
+  }
+  #add:hover { background: #d5ece3; }
   #wear { border-color: var(--yarn); color: var(--yarn); }
   #reset { color: var(--muted); }
 
