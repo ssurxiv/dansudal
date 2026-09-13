@@ -38,6 +38,7 @@ const noteSubmitBtn = $('noteSubmit');
 const noteCancelBtn = $('noteCancel');
 const bubbleEl = $('bubble');
 const statusEl = $('status');
+const rowGrid = $('rowGrid');
 
 /**
  * 캐릭터의 말풍선(+스크린리더용 상태줄)을 갱신합니다. kind 'chat'은
@@ -47,6 +48,28 @@ function setStatus(text, kind = 'chat') {
   statusEl.textContent = text; // 화면에는 안 보임(.sr-only), 스크린리더용
   bubbleEl.textContent = text;
   bubbleEl.className = `speech-bubble kind-${kind}`;
+}
+
+/**
+ * 진행 막대 대신 GitHub 잔디 스타일 그리드 — 칸 하나가 한 단.
+ * 목표를 초과 달성했으면 그만큼 칸을 늘립니다. 칸 색은
+ * companion.colorForRow() 로 얻습니다(실제 실 교체 이력을 캐릭터
+ * 완성품 줄무늬와 같은 기준으로 반영).
+ */
+function renderRowGrid(rows, target) {
+  const count = Math.max(target, rows);
+  if (rowGrid.childElementCount !== count) {
+    rowGrid.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'row-cell';
+      rowGrid.appendChild(cell);
+    }
+  }
+  const cells = rowGrid.children;
+  for (let i = 0; i < count; i++) {
+    cells[i].style.backgroundColor = i < rows ? companion.colorForRow(i + 1) : '';
+  }
 }
 
 // UI는 Companion 내부를 직접 읽지 않으므로, ± 버튼이 현재 usedBall
@@ -91,7 +114,7 @@ const companion = new Companion(canvas, {
       totalBallInput.value = s.totalBall ?? '';
     }
     $('percent').textContent = `${s.percent}%`;
-    $('bar').style.width = `${s.percent}%`;
+    renderRowGrid(s.rows, s.target);
     // 알림 폼의 "끝 단" 기본값 안내 — 비워두면 이 값(현재 목표 단수)으로 취급됩니다.
     noteToInput.placeholder = `끝 단(기본 ${s.target})`;
     wearBtn.hidden = !s.finished;

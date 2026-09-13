@@ -161,17 +161,27 @@
     color: var(--muted);
     margin-bottom: 6px;
   }
-  .track {
-    height: 6px;
-    background: var(--line);
-    border-radius: 3px;
-    overflow: hidden;
+  /* 진행 그리드 — GitHub 잔디처럼 칸 하나가 한 단. 뜬 단은 그 지점의
+     실 색(배색 이력)으로, 아직 안 뜬 단은 빈 칸으로 표시합니다.
+     칸이 많아지면(목표 단수가 크면) 가로로 넘치므로 스크롤 가능한
+     래퍼로 감쌉니다. */
+  .row-grid-wrap {
+    overflow-x: auto;
+    padding-bottom: 2px;
   }
-  .fill {
-    height: 100%;
-    width: 0;
-    background: var(--yarn);
-    transition: width 160ms ease-out;
+  .row-grid {
+    display: grid;
+    grid-template-rows: repeat(7, 11px);
+    grid-auto-flow: column;
+    grid-auto-columns: 11px;
+    gap: 3px;
+    width: max-content;
+  }
+  .row-cell {
+    width: 11px;
+    height: 11px;
+    border-radius: 2px;
+    background: var(--line);
   }
 
   .stats {
@@ -420,7 +430,9 @@
     <div class="progress-head">
       <span>진행</span><span id="percent">0%</span>
     </div>
-    <div class="track"><div class="fill" id="bar"></div></div>
+    <div class="row-grid-wrap">
+      <div class="row-grid" id="rowGrid"></div>
+    </div>
   </div>
 
   <dl class="stats">

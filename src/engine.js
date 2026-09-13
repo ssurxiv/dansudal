@@ -528,6 +528,24 @@ export class Companion {
     return Math.min(S.MAX_KNIT, Math.round((this.rows / this.target) * S.MAX_KNIT));
   }
 
+  /**
+   * row 단이 속하는 knitLength 압축 단위의 실 색을 돌려줍니다. 진행
+   * 그리드(잔디)의 칸 색을 캐릭터 완성품/목도리 줄무늬와 똑같은
+   * 기준으로 맞추기 위한 용도입니다. colorSegments 의 from 은
+   * knitLength(0~9로 뭉친 시각 단위) 기준으로 기록되지, 실제 단수
+   * 기준이 아닙니다 — 실 교체 지점이 정확히 몇 단이었는지는 뭉개진
+   * 정보라 되살릴 수 없으므로, 같은 압축을 거쳐 근사합니다.
+   */
+  colorForRow(row) {
+    const unit = Math.min(S.MAX_KNIT, Math.round((row / this.target) * S.MAX_KNIT));
+    let color = this.colorSegments[0].color;
+    for (const seg of this.colorSegments) {
+      if (seg.from <= unit) color = seg.color;
+      else break;
+    }
+    return color;
+  }
+
   /** colorSegments 를 length 까지로 잘라 [{from,to,color}] 로 돌려줍니다. */
   segmentsUpTo(length) {
     const segs = this.colorSegments;
