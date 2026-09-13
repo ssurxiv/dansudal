@@ -280,6 +280,15 @@ const ACTIONS = {
       c.knitLength -= 1;
       c.pile += 1;
     }
+    // 풀어서 되돌아간 단도 알림 대상일 수 있습니다 — "한 단 푸는 중"은
+    // 풀기 동작이 실제로 진행 중일 때만 보여야 하니, 여기서 실제로
+    // 단이 줄어든 뒤 알림이 있으면 그걸로, 없으면 완료 문구로 바꿉니다.
+    const noteMessage = c.matchingNoteMessage(c.rows);
+    if (noteMessage) {
+      c.showNote(noteMessage);
+    } else if (!c.bubbleTimer) {
+      c.onStatus('한 단 풀었습니다');
+    }
     c.emit();
   },
 
@@ -501,6 +510,17 @@ export class Companion {
 
   /* ── 조작 ─────────────────────────────────────────────── */
 
+  /**
+   * row 에 걸리는 알림 문구들을 쉼표로 합쳐 돌려줍니다(없으면 null).
+   * addRow() 로 뜨며 도달할 때뿐 아니라 dropRow() 로 풀어서 되돌아갈
+   * 때도 같은 판정을 씁니다 — 어느 방향으로든 그 단을 지나가면 알림이
+   * 필요합니다.
+   */
+  matchingNoteMessage(row) {
+    const hits = this.notes.filter((n) => n.row === row || (n.every && row % n.every === 0));
+    return hits.length ? hits.map((n) => n.message).join(', ') : null;
+  }
+
   addRow() {
     if (this.rows >= this.target) {
       this.onStatus('목표 단수에 도달했습니다');
@@ -514,13 +534,9 @@ export class Companion {
       this.ball -= 1;
       grew = true;
     }
-    const hits = this.notes.filter(
-      (n) => n.row === this.rows || (n.every && this.rows % n.every === 0)
-    );
-    if (hits.length) {
-      // 한 단에 알림이 여러 개 겹치면 순서대로 띄우는 대신 쉼표로 이어
-      // 한 번에 보여줍니다 — 기다릴 필요 없이 한눈에 다 보이는 편이 낫습니다.
-      this.showNote(hits.map((n) => n.message).join(', '));
+    const noteMessage = this.matchingNoteMessage(this.rows);
+    if (noteMessage) {
+      this.showNote(noteMessage);
     } else if (!this.bubbleTimer) {
       // 알림이 떠 있는 동안(showNote 의 표시 시간)엔 평범한 진행 문구로
       // 덮어쓰지 않습니다. 시간이 지나 bubbleTimer 가 비면 다시 정상 표시됩니다.
