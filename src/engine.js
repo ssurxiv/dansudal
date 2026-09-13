@@ -640,6 +640,7 @@ export class Companion {
     this.usedBall = 0;
     this.currentColor = this.initialColor;
     this.colorSegments = [{ from: 0, color: this.initialColor }];
+    this.notes = []; // 등록해둔 알림도 새 프로젝트를 시작하는 셈이니 함께 비웁니다.
     this.onStatus(pickLine(IDLE_GREETINGS));
     this.enter('idle');
   }

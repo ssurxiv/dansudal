@@ -202,12 +202,14 @@ function renderNotesList(notes) {
 
     const editBtn = document.createElement('button');
     editBtn.type = 'button';
-    editBtn.textContent = '수정';
+    editBtn.textContent = '✏️';
+    editBtn.setAttribute('aria-label', '알림 수정');
     editBtn.addEventListener('click', () => startEditNote(note));
 
     const delBtn = document.createElement('button');
     delBtn.type = 'button';
-    delBtn.textContent = '삭제';
+    delBtn.textContent = '🗑️';
+    delBtn.setAttribute('aria-label', '알림 삭제');
     delBtn.addEventListener('click', () => {
       companion.removeNote(note.id);
       if (editingNoteId === note.id) resetNoteForm();

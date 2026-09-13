@@ -285,33 +285,45 @@
     margin: 0 0 16px;
   }
   .notes .hint { margin: 0 0 8px; }
+  /* 메모장에 일정을 한 줄씩 적어둔 느낌 — 낱개 카드 대신 점선으로 나눈
+     리스트. 항목마다 박스를 두르지 않아 알림이 늘어도 답답하지 않다. */
   .notes-list {
     list-style: none;
     margin: 0 0 10px;
     padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
   }
   .notes-list li {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 6px 8px;
+    gap: 6px;
+    padding: 6px 2px;
+    border-bottom: 1px dashed var(--line);
     font-size: 13px;
   }
-  .notes-list .note-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
-  .notes-list .note-actions { display: flex; gap: 4px; flex: none; }
+  .notes-list li:last-child { border-bottom: none; }
+  .notes-list .note-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .notes-list .note-text::before {
+    content: '· ';
+    color: var(--muted);
+  }
+  .notes-list .note-actions { display: flex; gap: 0; flex: none; }
   .notes-list button {
     flex: none;
+    width: 26px;
+    height: 26px;
     min-width: 0;
-    padding: 4px 8px;
-    font-size: 12px;
+    padding: 0;
+    font-size: 13px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--muted);
   }
+  .notes-list button:hover { background: #fff; color: var(--ink); }
   .note-type {
     display: flex;
     gap: 12px;
