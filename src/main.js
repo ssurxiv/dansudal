@@ -50,25 +50,96 @@ function setStatus(text, kind = 'chat') {
   bubbleEl.className = `speech-bubble kind-${kind}`;
 }
 
+// 진행 그리드 칸 크기·모양 계산에 쓰는 값들.
+const GRID_GAP = 3;
+const GRID_MIN_CELL = 7;
+const GRID_MAX_CELL = 26;
+const GRID_MIN_ROWS = 3;
+const GRID_MAX_ROWS = 12;
+const GRID_ASPECT = 3; // 그리드가 세로보다 가로로 3배쯤 넓어 보이도록
+
 /**
- * 진행 막대 대신 GitHub 잔디 스타일 그리드 — 칸 하나가 한 단.
- * 목표를 초과 달성했으면 그만큼 칸을 늘립니다. 칸 색은
- * companion.colorForRow() 로 얻습니다(실제 실 교체 이력을 캐릭터
- * 완성품 줄무늬와 같은 기준으로 반영).
+ * 목표 단수(target)와 컨테이너 너비에 맞춰 격자 모양(행·열)과 칸
+ * 크기를 정합니다. 목표가 작으면 칸을 크게, 크면 작게 키워서 목표가
+ * 뭐든 그리드가 카드 너비를 비슷하게 채우도록 합니다 — 칸이 고정
+ * 크기였을 때는 목표가 작은 프로젝트는 그리드가 너무 작아 다 채워도
+ * "완성됐다"는 느낌이 안 났습니다.
+ *
+ * 이상적인 열 수(목표*가로세로비 의 제곱근) 근처에서 목표를 정확히
+ * 나누는 열 수를 찾습니다 — 못 찾으면(소수 등) 반올림으로 대체하는데,
+ * 이때는 칸이 1~2개 남을 수 있습니다. 딱 나누어떨어지면 완성 시
+ * 빈 칸 없이 꽉 찹니다.
+ */
+function computeGridShape(target, containerWidth) {
+  const idealCols = Math.max(1, Math.round(Math.sqrt(target * GRID_ASPECT)));
+  let cols = null;
+  let rows = null;
+  for (let d = 0; d <= 4 && cols === null; d++) {
+    for (const c of d === 0 ? [idealCols] : [idealCols - d, idealCols + d]) {
+      if (c < 1 || target % c !== 0) continue;
+      const r = target / c;
+      if (r < GRID_MIN_ROWS || r > GRID_MAX_ROWS) continue;
+      cols = c;
+      rows = r;
+      break;
+    }
+  }
+  if (cols === null) {
+    rows = Math.min(GRID_MAX_ROWS, Math.max(GRID_MIN_ROWS, Math.ceil(target / idealCols)));
+    cols = Math.ceil(target / rows);
+  }
+  const raw = Math.floor((containerWidth - (cols - 1) * GRID_GAP) / cols);
+  const cellSize = Math.min(GRID_MAX_CELL, Math.max(GRID_MIN_CELL, raw));
+  return { rows, cols, cellSize };
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** 캐릭터가 수달이라 네모 대신 물고기 한 마리 = 한 단. fill 은 currentColor 라
+    실제 색은 이 함수가 아니라 렌더링 쪽에서 svg.style.color 로 입힙니다. */
+function makeFishCell() {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.classList.add('row-cell');
+  const body = document.createElementNS(SVG_NS, 'ellipse');
+  body.setAttribute('cx', '9');
+  body.setAttribute('cy', '12');
+  body.setAttribute('rx', '7');
+  body.setAttribute('ry', '5');
+  body.setAttribute('fill', 'currentColor');
+  const tail = document.createElementNS(SVG_NS, 'polygon');
+  tail.setAttribute('points', '15,12 23,5 23,19');
+  tail.setAttribute('fill', 'currentColor');
+  svg.append(body, tail);
+  return svg;
+}
+
+/**
+ * 진행 막대 대신 물고기 그리드(GitHub 잔디 컨셉을 캐릭터에 맞게) —
+ * 물고기 한 마리가 한 단. 목표를 초과 달성했으면 그만큼 늘립니다.
+ * 색은 companion.colorForRow() 로 얻습니다(실제 실 교체 이력을
+ * 캐릭터 완성품 줄무늬와 같은 기준으로 반영).
  */
 function renderRowGrid(rows, target) {
-  const count = Math.max(target, rows);
-  if (rowGrid.childElementCount !== count) {
+  const containerWidth = rowGrid.parentElement.clientWidth || 300;
+  const { rows: gridRows, cols: gridCols, cellSize } = computeGridShape(target, containerWidth);
+  // 목표만큼의 칸(gridRows*gridCols)이 기본이고, 초과 달성한 단수만큼만
+  // 그 뒤에 더 붙입니다 — 모양 계산 자체는 항상 target 기준입니다.
+  const total = Math.max(gridRows * gridCols, rows);
+
+  rowGrid.style.gridTemplateRows = `repeat(${gridRows}, ${cellSize}px)`;
+  rowGrid.style.gridAutoColumns = `${cellSize}px`;
+  rowGrid.style.gap = `${GRID_GAP}px`;
+
+  if (rowGrid.childElementCount !== total) {
     rowGrid.innerHTML = '';
-    for (let i = 0; i < count; i++) {
-      const cell = document.createElement('div');
-      cell.className = 'row-cell';
-      rowGrid.appendChild(cell);
+    for (let i = 0; i < total; i++) {
+      rowGrid.appendChild(makeFishCell());
     }
   }
   const cells = rowGrid.children;
-  for (let i = 0; i < count; i++) {
-    cells[i].style.backgroundColor = i < rows ? companion.colorForRow(i + 1) : '';
+  for (let i = 0; i < total; i++) {
+    cells[i].style.color = i < rows ? companion.colorForRow(i + 1) : 'var(--line)';
   }
 }
 

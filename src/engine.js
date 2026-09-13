@@ -364,6 +364,8 @@ function normalizeNote(input, id) {
 
 /* 벗고 다시 자랑할 때 매번 같은 말이면 심심하니 랜덤으로 고릅니다. */
 const SHOWOFF_LINES = ['예쁘죠?', '뿌듯하다!', '짜잔!', '완전 마음에 들어!', '이야, 잘 됐다!'];
+/* 입어볼 때도 매번 "입어보는 중"이면 밋밋하니 랜덤으로 고릅니다. */
+const WEARING_LINES = ['따듯해', '너무 예쁘잖아', '맘에 들어', '딱이야!'];
 /* 처음 들어왔을 때·초기화했을 때도 매번 같은 문구면 심심하니까. */
 const IDLE_GREETINGS = ['같이 떠요 :)', '오늘은 뭘 뜨지 o_o?', '뭐부터 떠볼까?', '실 준비됐어요!'];
 const pickLine = (lines) => lines[Math.floor(Math.random() * lines.length)];
@@ -707,7 +709,7 @@ export class Companion {
 
   tryOn() {
     if (this.state !== 'showoff') return;
-    this.onStatus('입어보는 중');
+    this.onStatus(pickLine(WEARING_LINES));
     this.enter('wrapping');
   }
 
