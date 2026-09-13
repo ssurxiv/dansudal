@@ -31,6 +31,9 @@ const notesList = $('notesList');
 const noteForm = $('noteForm');
 const noteNumberInput = $('noteNumber');
 const noteMessageInput = $('noteMessage');
+const noteRangeFields = $('noteRange');
+const noteFromInput = $('noteFrom');
+const noteToInput = $('noteTo');
 const noteSubmitBtn = $('noteSubmit');
 const noteCancelBtn = $('noteCancel');
 const bubbleEl = $('bubble');
@@ -89,12 +92,16 @@ const companion = new Companion(canvas, {
     }
     $('percent').textContent = `${s.percent}%`;
     $('bar').style.width = `${s.percent}%`;
+    // 알림 폼의 "끝 단" 기본값 안내 — 비워두면 이 값(현재 목표 단수)으로 취급됩니다.
+    noteToInput.placeholder = `끝 단(기본 ${s.target})`;
     wearBtn.hidden = !s.finished;
     wearBtn.textContent = s.wearing ? '🧣 벗기' : '🧣 입어보기';
-    // 완성 후에는 뜨기/풀기/감기/실 교체가 의미 없으니 입어보기·새로 뜨기만 남깁니다.
-    addBtn.hidden = ripBtn.hidden = windBtn.hidden = swapBtn.hidden = s.finished;
-    if (s.finished) stashPanel.hidden = true;
-    resetBtn.textContent = s.finished ? '🔁 새로 뜨기' : '🔁 초기화';
+    // 완성 후에는 뜨기/풀기/감기/실 교체/알림이 의미 없으니 입어보기·새로 뜨기만 남깁니다.
+    addBtn.hidden = ripBtn.hidden = windBtn.hidden = swapBtn.hidden = notesToggleBtn.hidden = s.finished;
+    if (s.finished) {
+      stashPanel.hidden = true;
+      notesPanel.hidden = true;
+    }
     renderNotesList(s.notes);
   },
   onStatus: setStatus
@@ -172,11 +179,23 @@ swapBtn.addEventListener('click', () => {
 // 추가/수정/삭제 폼 연결만 담당합니다.
 let editingNoteId = null;
 
+// 특정 단(row)은 구간 개념이 없고, 매 N단(every)만 시작~끝 구간을
+// 받으니 라디오 선택에 따라 그 입력줄을 보였다 숨겼다 합니다.
+function updateNoteRangeVisibility() {
+  const type = noteForm.querySelector('input[name="noteType"]:checked').value;
+  noteRangeFields.hidden = type !== 'every';
+}
+noteForm.querySelectorAll('input[name="noteType"]').forEach((radio) => {
+  radio.addEventListener('change', updateNoteRangeVisibility);
+});
+updateNoteRangeVisibility();
+
 function resetNoteForm() {
   editingNoteId = null;
   noteForm.reset();
   noteSubmitBtn.textContent = '추가';
   noteCancelBtn.hidden = true;
+  updateNoteRangeVisibility();
 }
 
 function startEditNote(note) {
@@ -185,16 +204,28 @@ function startEditNote(note) {
   noteForm.querySelector(`input[name="noteType"][value="${type}"]`).checked = true;
   noteNumberInput.value = note.row ?? note.every;
   noteMessageInput.value = note.message;
+  noteFromInput.value = note.from ?? '';
+  noteToInput.value = note.to ?? '';
   noteSubmitBtn.textContent = '수정';
   noteCancelBtn.hidden = false;
   notesPanel.hidden = false;
+  updateNoteRangeVisibility();
 }
 
 function renderNotesList(notes) {
   notesList.innerHTML = '';
   notes.forEach((note) => {
     const li = document.createElement('li');
-    const label = note.row != null ? `${note.row}단` : `매 ${note.every}단`;
+    let label;
+    if (note.row != null) {
+      label = `${note.row}단`;
+    } else if (note.from != null || note.to != null) {
+      // 구간을 지정했을 때만 범위를 같이 보여줍니다 — 기본(1~총 단수)
+      // 그대로면 굳이 안 보여줘도 "매 N단"만으로 충분합니다.
+      label = `${note.from ?? 1}~${note.to ?? '끝'}단, 매 ${note.every}단`;
+    } else {
+      label = `매 ${note.every}단`;
+    }
 
     const text = document.createElement('span');
     text.className = 'note-text';
@@ -239,9 +270,18 @@ noteForm.addEventListener('submit', (e) => {
   const type = noteForm.querySelector('input[name="noteType"]:checked').value;
   const num = parseInt(noteNumberInput.value, 10);
   const message = noteMessageInput.value.trim();
+  const fromRaw = noteFromInput.value.trim();
+  const toRaw = noteToInput.value.trim();
   const input = type === 'row'
     ? { row: num, every: null, message }
-    : { row: null, every: num, message };
+    : {
+      row: null,
+      every: num,
+      // 비워두면 null → engine 쪽에서 1/현재 목표 단수로 취급합니다.
+      from: fromRaw === '' ? null : parseInt(fromRaw, 10),
+      to: toRaw === '' ? null : parseInt(toRaw, 10),
+      message
+    };
 
   const ok = editingNoteId
     ? companion.updateNote(editingNoteId, input)
@@ -266,8 +306,10 @@ $('target').addEventListener('blur', (e) => {
   const value = parseInt(e.target.value, 10);
   if (!Number.isFinite(value) || value < 1) e.target.value = companion.target;
 });
+// 버튼 문구는 "새로 뜨기"로 통일하지만, 완성 전/후로 실제로 되돌리는
+// 대상이 다르니(진행 중인 작업 vs 완성한 결과물) 확인 문구는 그대로 구분합니다.
 resetBtn.addEventListener('click', () => {
-  const prompt = resetBtn.textContent === '🔁 새로 뜨기'
+  const prompt = lastSnapshot?.finished
     ? '지금 뜨개는 그만두고 새로 시작할까요?'
     : '진행 상황을 처음으로 되돌릴까요?';
   if (window.confirm(prompt)) companion.reset();

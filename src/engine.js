@@ -328,6 +328,10 @@ const makeNoteId = () => `note-${Date.now().toString(36)}-${(noteSeq++).toString
  * 알림 입력을 검증하고 정규화합니다. row(특정 단)와 every(N단마다)는
  * 정확히 하나만 있어야 하고, message 는 비어있지 않아야 합니다.
  * 조건을 못 만족하면 null 을 돌려줍니다.
+ *
+ * from/to 는 every 전용 구간 제한입니다 — 둘 다 선택 입력이라 비우면
+ * null 로 저장하고, 실제 판정 시점(matchingNoteMessage)에 각각
+ * 1/현재 목표 단수로 취급합니다. row 알림에는 의미가 없어 항상 null.
  */
 function normalizeNote(input, id) {
   const row = Number.isFinite(input?.row) ? Math.floor(input.row) : null;
@@ -337,7 +341,25 @@ function normalizeNote(input, id) {
   const hasRow = row !== null && row >= 1;
   const hasEvery = every !== null && every >= 1;
   if (hasRow === hasEvery) return null; // 둘 다 없거나 둘 다 있으면 무효
-  return { id: id ?? makeNoteId(), row: hasRow ? row : null, every: hasEvery ? every : null, message };
+
+  let from = null;
+  let to = null;
+  if (hasEvery) {
+    from = Number.isFinite(input?.from) ? Math.floor(input.from) : null;
+    to = Number.isFinite(input?.to) ? Math.floor(input.to) : null;
+    if (from !== null && from < 1) return null;
+    if (to !== null && to < 1) return null;
+    if (from !== null && to !== null && from > to) return null;
+  }
+
+  return {
+    id: id ?? makeNoteId(),
+    row: hasRow ? row : null,
+    every: hasEvery ? every : null,
+    from,
+    to,
+    message
+  };
 }
 
 /* 벗고 다시 자랑할 때 매번 같은 말이면 심심하니 랜덤으로 고릅니다. */
@@ -522,13 +544,25 @@ export class Companion {
   /* ── 조작 ─────────────────────────────────────────────── */
 
   /**
-   * row 에 걸리는 알림 문구들을 쉼표로 합쳐 돌려줍니다(없으면 null).
-   * addRow() 로 뜨며 도달할 때뿐 아니라 dropRow() 로 풀어서 되돌아갈
-   * 때도 같은 판정을 씁니다 — 어느 방향으로든 그 단을 지나가면 알림이
-   * 필요합니다.
+   * completedRows(=this.rows, 이미 뜬 단수) 기준으로 걸리는 알림
+   * 문구들을 쉼표로 합쳐 돌려줍니다(없으면 null). addRow() 로 뜨며
+   * 도달할 때뿐 아니라 dropRow() 로 풀어서 되돌아갈 때도 같은 판정을
+   * 씁니다 — 어느 방향으로든 그 단을 지나가면 알림이 필요합니다.
+   *
+   * rows 는 "이미 완료한 단수"라, 지금 한창 뜨고 있는 단은 그보다 1
+   * 큽니다(rows=4 → 5단째를 뜨는 중). 알림은 그 단을 뜨기 시작할 때
+   * 미리 알아야 뜻이 있으므로(다 뜬 뒤에 "코 줄임"이라고 해봐야 늦음)
+   * workingRow(= completedRows+1) 기준으로 판정합니다.
    */
-  matchingNoteMessage(row) {
-    const hits = this.notes.filter((n) => n.row === row || (n.every && row % n.every === 0));
+  matchingNoteMessage(completedRows) {
+    const workingRow = completedRows + 1;
+    const hits = this.notes.filter((n) => {
+      if (n.row != null) return n.row === workingRow;
+      if (!n.every) return false;
+      const from = n.from ?? 1;
+      const to = n.to ?? this.target;
+      return workingRow >= from && workingRow <= to && workingRow % n.every === 0;
+    });
     return hits.length ? hits.map((n) => n.message).join(', ') : null;
   }
 
