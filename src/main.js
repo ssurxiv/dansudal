@@ -50,106 +50,103 @@ function setStatus(text, kind = 'chat') {
   bubbleEl.className = `speech-bubble kind-${kind}`;
 }
 
-// 진행 그리드 칸 크기·모양 계산에 쓰는 값들. 폭(containerWidth)과
-// 높이 예산(GRID_HEIGHT_BUDGET) 두 방향을 같이 맞춰서, 목표가 작아
-// 열이 적어져도 칸을 키워 가로를 마저 채우게 합니다 — 예전엔 칸
-// 크기 상한이 낮아 작은 목표에서 그리드 오른쪽이 텅 비어 보였습니다.
-const GRID_GAP = 4;
-const GRID_MIN_CELL = 7;
-const GRID_MAX_CELL = 44;
-const GRID_MIN_ROWS = 2;
-const GRID_MAX_ROWS = 14;
-const GRID_HEIGHT_BUDGET = 100;
-
-/**
- * 목표 단수(target)와 컨테이너 너비에 맞춰 격자 모양(행·열)과 칸
- * 크기를 정합니다. 목표*컨테이너너비/높이예산 의 제곱근을 이상적인
- * 열 수로 삼아, 그 근처에서 목표를 정확히 나누는 열 수를 찾습니다
- * (못 찾으면 반올림으로 대체 — 이때는 칸이 1~2개 남을 수 있습니다).
- * 칸 크기는 "폭 기준으로 계산한 크기"와 "높이 예산 기준으로 계산한
- * 크기" 중 더 작은 쪽을 씁니다 — 어느 한쪽이 넘치지 않으면서 폭을
- * 최대한 채우게 됩니다.
- */
-function computeGridShape(target, containerWidth) {
-  const idealCols = Math.max(1, Math.round(Math.sqrt((target * containerWidth) / GRID_HEIGHT_BUDGET)));
-  let cols = null;
-  let rows = null;
-  for (let d = 0; d <= 4 && cols === null; d++) {
-    for (const c of d === 0 ? [idealCols] : [idealCols - d, idealCols + d]) {
-      if (c < 1 || target % c !== 0) continue;
-      const r = target / c;
-      if (r < GRID_MIN_ROWS || r > GRID_MAX_ROWS) continue;
-      cols = c;
-      rows = r;
-      break;
-    }
-  }
-  if (cols === null) {
-    rows = Math.min(GRID_MAX_ROWS, Math.max(GRID_MIN_ROWS, Math.ceil(target / idealCols)));
-    cols = Math.ceil(target / rows);
-  }
-  const byWidth = (containerWidth - (cols - 1) * GRID_GAP) / cols;
-  const byHeight = (GRID_HEIGHT_BUDGET - (rows - 1) * GRID_GAP) / rows;
-  const cellSize = Math.min(GRID_MAX_CELL, Math.max(GRID_MIN_CELL, Math.floor(Math.min(byWidth, byHeight))));
-  return { rows, cols, cellSize };
-}
+// 진행 그리드 — 칸 크기는 고정이고, 카드 너비에 들어가는 만큼 한
+// 줄에 채운 뒤 다음 줄로 넘어갑니다(일반 텍스트 줄바꿈과 같은
+// row-major 흐름). GitHub 잔디의 "여러 주(열)로 쌓이는" 방식 대신
+// 이 편이 "목표 단수 = 칸 개수"가 항상 정확히 맞고, 계산도 훨씬
+// 단순합니다.
+const GRID_GAP = 3;
+const GRID_CELL = 15;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
+// 물고기 몸통·꼬리 좌표. index.html 상단의 공유 <clipPath id="fishClip">
+// 가 명암용 사각형을 이 모양대로 잘라내야 하니, 좌표를 바꾸면 거기도
+// 반드시 같이 바꿔야 합니다.
+const FISH_BODY_D = 'M3,12 C3,6.2 9,5 13,6 C16,6.8 16.5,9.6 16.5,12 C16.5,14.4 16,17.2 13,18 C9,19 3,17.8 3,12 Z';
+const FISH_TAIL_POINTS = '16,12 22,7 22,17';
+
 /**
- * 캐릭터가 수달이라 네모 대신 물고기 한 마리 = 한 단. 몸통 + 갈래
- * 꼬리 + 등지느러미 + 눈(배경색으로 뚫은 구멍)으로 좀 더 물고기답게
- * 그렸습니다. 몸통·꼬리·지느러미는 currentColor 라, 실제 색은 이
- * 함수가 아니라 렌더링 쪽에서 svg.style.color 로 입힙니다.
+ * 캐릭터가 수달이라 네모 대신 물고기 한 마리 = 한 단. 뒤로 갈수록
+ * 얇아지는 몸통(머리 쪽은 둥글고 두껍게, 꼬리 쪽은 홀쭉하게) + 작은
+ * 삼각 꼬리 + 아래쪽 절반을 살짝 어둡게 칠한 명암 + 눈으로 구성됩니다.
+ * 몸통·꼬리는 currentColor 라, 실제 색은 이 함수가 아니라 렌더링
+ * 쪽에서 svg.style.color 로 입힙니다. 눈은 알림 종류에 따라
+ * setEyeShape() 가 매 렌더마다 다시 그립니다.
  */
 function makeFishCell() {
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
   svg.classList.add('row-cell');
 
-  const body = document.createElementNS(SVG_NS, 'ellipse');
-  body.setAttribute('cx', '10');
-  body.setAttribute('cy', '13');
-  body.setAttribute('rx', '7');
-  body.setAttribute('ry', '6');
+  const body = document.createElementNS(SVG_NS, 'path');
+  body.setAttribute('d', FISH_BODY_D);
   body.setAttribute('fill', 'currentColor');
 
-  // 갈래 꼬리 — 평평한 삼각형보다 물고기답게, 가운데를 안쪽으로 판 V자.
-  const tail = document.createElementNS(SVG_NS, 'path');
-  tail.setAttribute('d', 'M16,13 L23,5 L19,13 L23,21 Z');
+  const tail = document.createElementNS(SVG_NS, 'polygon');
+  tail.setAttribute('points', FISH_TAIL_POINTS);
   tail.setAttribute('fill', 'currentColor');
 
-  const fin = document.createElementNS(SVG_NS, 'path');
-  fin.setAttribute('d', 'M8,7 L11,1 L13,7 Z');
-  fin.setAttribute('fill', 'currentColor');
+  // 명암 — 몸통 아래쪽 절반을 반투명 검정으로 살짝 덮어 그림자를
+  // 흉내냅니다. 실제 색을 계산해 어둡게 섞는 대신 이렇게 하면 어떤
+  // 실 색이 와도 그대로 통합니다.
+  const shade = document.createElementNS(SVG_NS, 'rect');
+  shade.setAttribute('x', '0');
+  shade.setAttribute('y', '12');
+  shade.setAttribute('width', '24');
+  shade.setAttribute('height', '12');
+  shade.setAttribute('fill', 'black');
+  shade.setAttribute('fill-opacity', '0.22');
+  shade.setAttribute('clip-path', 'url(#fishClip)');
 
-  // 눈 — 몸통 색으로 채우는 대신 배경색으로 "구멍"을 뚫어서, 어떤
-  // 실 색이 와도 항상 또렷하게 보이게 합니다.
-  const eye = document.createElementNS(SVG_NS, 'circle');
-  eye.setAttribute('cx', '5.5');
-  eye.setAttribute('cy', '11');
-  eye.setAttribute('r', '1.3');
-  eye.style.fill = 'var(--paper)';
-
-  svg.append(body, tail, fin, eye);
+  svg.append(body, tail, shade);
+  setEyeShape(svg, 'circle');
   return svg;
 }
 
 /**
- * 진행 막대 대신 물고기 그리드(GitHub 잔디 컨셉을 캐릭터에 맞게) —
- * 물고기 한 마리가 한 단. 목표를 초과 달성했으면 그만큼 늘립니다.
- * 색은 companion.colorForRow() 로 얻습니다(실제 실 교체 이력을
- * 캐릭터 완성품 줄무늬와 같은 기준으로 반영).
+ * 눈 모양을 갱신합니다 — 평소엔 동그라미, 코 줄임 단은 ^, 코 늘림
+ * 단은 V. 배경색으로 "구멍"을 뚫는 방식이라(칠하는 게 아니라
+ * stroke/fill 을 배경색으로) 어떤 실 색이 와도 또렷하게 보입니다.
+ */
+function setEyeShape(svg, shape) {
+  const old = svg.querySelector('.fish-eye');
+  if (old) old.remove();
+
+  let eye;
+  if (shape === 'up' || shape === 'down') {
+    eye = document.createElementNS(SVG_NS, 'path');
+    eye.setAttribute('d', shape === 'up' ? 'M4,11.8 L5.6,9.6 L7.2,11.8' : 'M4,9.6 L5.6,11.8 L7.2,9.6');
+    eye.setAttribute('fill', 'none');
+    eye.setAttribute('stroke-width', '1.3');
+    eye.setAttribute('stroke-linecap', 'round');
+    eye.setAttribute('stroke-linejoin', 'round');
+    eye.style.stroke = 'var(--paper)';
+  } else {
+    eye = document.createElementNS(SVG_NS, 'circle');
+    eye.setAttribute('cx', '5.5');
+    eye.setAttribute('cy', '10.5');
+    eye.setAttribute('r', '1.3');
+    eye.style.fill = 'var(--paper)';
+  }
+  eye.classList.add('fish-eye');
+  svg.appendChild(eye);
+}
+
+/**
+ * 진행 막대 대신 물고기 그리드 — 물고기 한 마리가 한 단, 목표를
+ * 초과 달성했으면 그만큼 늘립니다(그래서 칸 개수는 항상 정확히
+ * max(target, rows)). 색은 companion.colorForRow() 로 얻습니다
+ * (실제 실 교체 이력을 캐릭터 완성품 줄무늬와 같은 기준으로 반영).
+ * 이미 뜬 단에 코 줄임/코 늘림 알림이 걸려 있었으면 그 단의 눈
+ * 모양을 ^/V 로 바꿔 어떤 기법을 썼는지 한눈에 보이게 합니다.
  */
 function renderRowGrid(rows, target) {
+  const total = Math.max(target, rows);
   const containerWidth = rowGrid.parentElement.clientWidth || 300;
-  const { rows: gridRows, cols: gridCols, cellSize } = computeGridShape(target, containerWidth);
-  // 목표만큼의 칸(gridRows*gridCols)이 기본이고, 초과 달성한 단수만큼만
-  // 그 뒤에 더 붙입니다 — 모양 계산 자체는 항상 target 기준입니다.
-  const total = Math.max(gridRows * gridCols, rows);
+  const cols = Math.max(1, Math.floor((containerWidth + GRID_GAP) / (GRID_CELL + GRID_GAP)));
 
-  rowGrid.style.gridTemplateRows = `repeat(${gridRows}, ${cellSize}px)`;
-  rowGrid.style.gridAutoColumns = `${cellSize}px`;
+  rowGrid.style.gridTemplateColumns = `repeat(${cols}, ${GRID_CELL}px)`;
   rowGrid.style.gap = `${GRID_GAP}px`;
 
   if (rowGrid.childElementCount !== total) {
@@ -160,7 +157,15 @@ function renderRowGrid(rows, target) {
   }
   const cells = rowGrid.children;
   for (let i = 0; i < total; i++) {
-    cells[i].style.color = i < rows ? companion.colorForRow(i + 1) : 'var(--line)';
+    const knitRow = i + 1;
+    const filled = knitRow <= rows;
+    cells[i].style.color = filled ? companion.colorForRow(knitRow) : 'var(--line)';
+
+    const messages = filled ? companion.notesForRow(knitRow).map((n) => n.message) : [];
+    const shape = messages.some((m) => m.includes('코 줄임')) ? 'up'
+      : messages.some((m) => m.includes('코 늘림')) ? 'down'
+      : 'circle';
+    setEyeShape(cells[i], shape);
   }
 }
 

@@ -173,9 +173,10 @@
   }
   .row-grid {
     display: grid;
-    grid-auto-flow: column;
+    /* grid-auto-flow 는 기본값 row — 왼쪽부터 채우다 한 줄이 차면
+       다음 줄로, 일반 텍스트 줄바꿈과 같은 흐름입니다. 열 수·칸
+       크기는 main.js 가 카드 너비에 맞춰 인라인 스타일로 넣습니다. */
     gap: 3px;
-    width: max-content;
   }
   .row-cell {
     width: 100%;
@@ -410,6 +411,18 @@
 </style>
 </head>
 <body>
+<!-- 진행 그리드의 물고기 전부가 공유하는 클립 경로. 아래쪽 반을
+     어둡게 칠하는 명암용 사각형을 이 모양으로 잘라내는 데 씁니다.
+     body/tail 좌표는 main.js 의 makeFishCell() 과 반드시 맞춰야
+     합니다 — 둘이 다르면 명암이 물고기 밖으로 삐져나옵니다. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <clipPath id="fishClip" clipPathUnits="userSpaceOnUse">
+      <path d="M3,12 C3,6.2 9,5 13,6 C16,6.8 16.5,9.6 16.5,12 C16.5,14.4 16,17.2 13,18 C9,19 3,17.8 3,12 Z" />
+      <polygon points="16,12 22,7 22,17" />
+    </clipPath>
+  </defs>
+</svg>
 <main>
   <div class="page-head">
     <h1>단수달 🦦</h1>

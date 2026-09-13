@@ -564,6 +564,21 @@ export class Companion {
   /* ── 조작 ─────────────────────────────────────────────── */
 
   /**
+   * row 번째 단 자체에 걸리는 알림들을 배열로 돌려줍니다(없으면 빈
+   * 배열). matchingNoteMessage() 와 진행 그리드(main.js, "이 단에
+   * 무슨 알림이 있었는지" 눈 모양 표시)가 같이 씁니다.
+   */
+  notesForRow(row) {
+    return this.notes.filter((n) => {
+      if (n.row != null) return n.row === row;
+      if (!n.every) return false;
+      const from = n.from ?? 1;
+      const to = n.to ?? this.target;
+      return row >= from && row <= to && row % n.every === 0;
+    });
+  }
+
+  /**
    * completedRows(=this.rows, 이미 뜬 단수) 기준으로 걸리는 알림
    * 문구들을 쉼표로 합쳐 돌려줍니다(없으면 null). addRow() 로 뜨며
    * 도달할 때뿐 아니라 dropRow() 로 풀어서 되돌아갈 때도 같은 판정을
@@ -575,14 +590,7 @@ export class Companion {
    * workingRow(= completedRows+1) 기준으로 판정합니다.
    */
   matchingNoteMessage(completedRows) {
-    const workingRow = completedRows + 1;
-    const hits = this.notes.filter((n) => {
-      if (n.row != null) return n.row === workingRow;
-      if (!n.every) return false;
-      const from = n.from ?? 1;
-      const to = n.to ?? this.target;
-      return workingRow >= from && workingRow <= to && workingRow % n.every === 0;
-    });
+    const hits = this.notesForRow(completedRows + 1);
     return hits.length ? hits.map((n) => n.message).join(', ') : null;
   }
 
