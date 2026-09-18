@@ -4,8 +4,8 @@
  * https://instagram.com/tteoboja_0
  */
 
-import { SIZE, blit, sliceRows } from './pixel.js';
-import * as S from './sprites.js';
+import { blit, sliceRows } from './pixel.js';
+import * as S from './otter/sprites.js';
 import { STATES, ENTRY } from './states.js';
 
 /**
@@ -13,13 +13,48 @@ import { STATES, ENTRY } from './states.js';
  * 쓰는 레이어 세트. 어깨(SHOULDER_L/R)에서 손까지 팔을 그어야
  * 손이 몸에 붙어 보입니다 — 팔 없이 paws() 만 찍으면 손이 따로 뜹니다.
  */
-function spreadHold(top) {
-  const lx = 4, rx = 24;
+function spreadHold(c, top) {
+  // 완성품을 어디로 잡느냐는 물건마다 다릅니다 — 목도리는 넓게 펼쳐
+  // 위쪽 양 끝을 잡지만(dy 0), 모자는 좁아서 그만큼 벌리면 두 손
+  // 사이에 붕 뜨고, 꼭대기를 잡으면 손이 둥근 머리 부분을 가려
+  // 사다리꼴처럼 보입니다. 팩이 자기 물건에 맞는 폭과 높이를 줍니다.
+  const { lx, rx, dy = 0 } = c.S.SPREAD_PAWS ?? { lx: 4, rx: 24 };
+  const y = top + dy;
   return [
-    [S.arm(S.SHOULDER_L[0], S.SHOULDER_L[1], lx + 3, top + 1), S.BODY],
-    [S.arm(S.SHOULDER_R[0], S.SHOULDER_R[1], rx, top + 1), S.BODY],
-    [S.paws(lx, top, rx, top), S.BODY]
+    [c.S.arm(c.S.SHOULDER_L[0], c.S.SHOULDER_L[1], lx + 3, y + 1), c.S.BODY],
+    [c.S.arm(c.S.SHOULDER_R[0], c.S.SHOULDER_R[1], rx, y + 1), c.S.BODY],
+    [c.S.paws(lx, y, rx, y), c.S.BODY]
   ];
+}
+
+/**
+ * 편물을 잡고 있는 평소 손 자리. 컨셉마다 다릅니다 — 단수달은 긴
+ * 바늘을 양손에 나눠 쥐어 손이 몸 밖으로 벌어지지만, 코토키는 한
+ * 손으로 편물을 잡고 다른 손으로 코바늘을 놀리므로 두 손 다 편물에
+ * 바짝 붙어야 합니다. 그래서 좌표를 여기 박지 않고 팩의 PAWS_REST 를
+ * 따릅니다.
+ */
+function restPaws(c, jab = [0, 0]) {
+  const { lx, ly, rx, ry } = c.S.PAWS_REST;
+  return [c.S.paws(lx, ly, rx + jab[0], ry + jab[1]), c.S.BODY];
+}
+
+/**
+ * 도구를 쥔 손이 프레임마다 따라가야 할 흔들림. 도구만 움직이고 손은
+ * 가만히 있으면 바늘이 손과 따로, 공중에서 혼자 노는 것처럼 보입니다.
+ * 팩이 자기 도구의 움직임(코토키는 코바늘의 찌르기)을 알려줍니다.
+ */
+const toolJab = (c, frame) => c.S.handJab?.(frame) ?? [0, 0];
+
+/**
+ * 바늘과 편물을 앞뒤 순서에 맞춰 쌓습니다. 뜨개바늘은 코를 꿰고 있어
+ * 편물 뒤로 들어가지만(단수달), 코바늘은 편물 위에 얹은 채 코를
+ * 끌어올리는 도구라 편물보다 앞에 와야 합니다(코토키) — 뒤에 두면
+ * 편물에 가려 갈고리가 아예 안 보입니다.
+ */
+function heldWork(c, needleLayer, flash) {
+  const knit = knitLayers(c, flash);
+  return c.S.NEEDLE_OVER_KNIT ? [...knit, needleLayer] : [needleLayer, ...knit];
 }
 
 /**
@@ -27,7 +62,7 @@ function spreadHold(top) {
  * 팔레트. 색 구간(colorSegments)까지 따질 필요 없이 늘 최근 색입니다.
  */
 function currentPalette(c) {
-  return S.paletteFor(c.currentColor);
+  return c.S.paletteFor(c.currentColor);
 }
 
 /**
@@ -44,21 +79,23 @@ function currentPalette(c) {
  */
 function knitLayers(c, flash) {
   if (c.knitLength <= 0) return [];
-  const full = S.knit(c.knitLength, flash);
+  const full = c.S.knit(c.knitLength, flash);
   const segs = c.segmentsUpTo(c.knitLength);
   const length = c.knitLength;
   const layers = [
     // 바늘 쪽(맨 위, 고정) 테두리는 실제로 떠진 가장 최근 색.
-    [sliceRows(full, S.KNIT_TOP, S.KNIT_TOP), S.paletteFor(segs[segs.length - 1].color)]
+    [sliceRows(full, c.S.KNIT_TOP, c.S.KNIT_TOP), c.S.paletteFor(segs[segs.length - 1].color)]
   ];
   segs.forEach((seg) => {
-    const fromY = S.KNIT_TOP + length - seg.to + 1;
-    const toY = S.KNIT_TOP + length - seg.from;
-    layers.push([sliceRows(full, fromY, toY), S.paletteFor(seg.color)]);
+    const fromY = c.S.KNIT_TOP + length - seg.to + 1;
+    const toY = c.S.KNIT_TOP + length - seg.from;
+    layers.push([sliceRows(full, fromY, toY), c.S.paletteFor(seg.color)]);
   });
-  // 캐스트온 쪽(맨 아래, 움직이는) 테두리는 처음 썼던 색.
-  const bottomY = Math.min(S.KNIT_TOP + length + 1, 30);
-  layers.push([sliceRows(full, bottomY, bottomY), S.paletteFor(segs[0].color)]);
+  // 캐스트온 쪽(맨 아래, 움직이는) 테두리는 처음 썼던 색. 30 은
+  // 단수달(32px 캔버스) 기준 하한선 — 코토키처럼 더 큰 캔버스를 쓰는
+  // 팩은 S.MAX_ROW 로 자기 하한선을 알려줍니다.
+  const bottomY = Math.min(c.S.KNIT_TOP + length + 1, c.S.MAX_ROW ?? 30);
+  layers.push([sliceRows(full, bottomY, bottomY), c.S.paletteFor(segs[0].color)]);
   return layers;
 }
 
@@ -70,7 +107,7 @@ function knitLayers(c, flash) {
  * 단수 기준이라, c.knitLengthSegments() 로 압축 단위로 바꿔서 씁니다.
  */
 function colorForFraction(c, frac) {
-  const unit = Math.round((1 - frac) * S.MAX_KNIT);
+  const unit = Math.round((1 - frac) * c.S.MAX_KNIT);
   const segs = c.knitLengthSegments();
   let color = segs[0].color;
   for (const seg of segs) {
@@ -85,17 +122,29 @@ function stripedRows(c, sprite, fromY, toY) {
   const layers = [];
   for (let y = fromY; y <= toY; y++) {
     const frac = span <= 0 ? 1 : (y - fromY) / span;
-    layers.push([sliceRows(sprite, y, y), S.paletteFor(colorForFraction(c, frac))]);
+    layers.push([sliceRows(sprite, y, y), c.S.paletteFor(colorForFraction(c, frac))]);
   }
   return layers;
 }
 
+// POSES 는 캐릭터 공통(단수달 기준) 좌표로 top/19/28 같은 값을 넘깁니다
+// — c.S.finishedPiece(top)/wornScarf() 는 그 좌표 그대로 otter 공간에서
+// 그린 뒤 팩이 통째로 아래로 밀 수 있으므로(코토키의 SHIFT), 그렇게
+// 밀린 스프라이트에서 같은 구간을 잘라내려면 여기서도 SHIFT 를
+// 더해야 합니다. otter 는 SHIFT 가 없어(0) 아무것도 안 바뀝니다.
 function pieceLayers(c, top) {
-  return stripedRows(c, S.finishedPiece(top), top, top + S.FINISHED_PIECE_SPAN + 1);
+  const shift = c.S.SHIFT ?? 0;
+  const from = top + shift;
+  return stripedRows(c, c.S.finishedPiece(top), from, from + c.S.FINISHED_PIECE_SPAN + 1);
 }
 
+/* 착용한 완성품이 차지하는 줄 범위는 컨셉마다 다릅니다 — 단수달은
+   목에 두른 목도리, 코토키는 머리에 쓴 비니라 아예 다른 높이입니다.
+   팩이 자기 범위를 알려주고(WORN_SPAN, 그 팩의 최종 좌표 기준),
+   안 알려주면 단수달의 목도리 자리를 씁니다. */
 function scarfLayers(c) {
-  return stripedRows(c, S.wornScarf(), 19, 28);
+  const [from, to] = c.S.WORN_SPAN ?? [19, 28];
+  return stripedRows(c, c.S.wornScarf(), from, to);
 }
 
 /**
@@ -106,13 +155,12 @@ const POSES = {
   holdWork(c) {
     return {
       behind: [
-        [S.feedStrand(c.knitLength, c.ball), currentPalette(c)],
-        [S.floorBall(c.ball), currentPalette(c)]
+        [c.S.feedStrand(c.knitLength, c.ball), currentPalette(c)],
+        [c.S.floorBall(c.ball), currentPalette(c)]
       ],
       front: [
-        [S.needles(1, 0), S.NEEDLE],
-        ...knitLayers(c, false),
-        [S.paws(7, 21, 21, 21), S.BODY]
+        ...heldWork(c, [c.S.needles(1, 0), c.S.NEEDLE], false),
+        restPaws(c, toolJab(c, 1))
       ]
     };
   },
@@ -120,48 +168,50 @@ const POSES = {
   knitting(c, frame) {
     return {
       behind: [
-        [S.feedStrand(c.knitLength, c.ball), currentPalette(c)],
-        [S.floorBall(c.ball), currentPalette(c)]
+        [c.S.feedStrand(c.knitLength, c.ball), currentPalette(c)],
+        [c.S.floorBall(c.ball), currentPalette(c)]
       ],
       front: [
-        [S.needles(frame, 0), S.NEEDLE],
-        ...knitLayers(c, c.flash),
-        [S.paws(7, 21, 21, 21), S.BODY]
+        ...heldWork(c, [c.S.needles(frame, 0), c.S.NEEDLE], c.flash),
+        restPaws(c, toolJab(c, frame))
       ]
     };
   },
 
   /* 오른쪽 바늘을 코에서 뽑으면서, 화면 밖으로 미끄러져 나가
-     "갑자기 사라지는" 대신 귀 뒤에 꽂아둔 것처럼 보이게 합니다. */
+     "갑자기 사라지는" 대신 잠깐 치워둔 것처럼 보이게 합니다(단수달은
+     귀 뒤에 꽂고, 코토키는 바닥에 내려놓습니다 — 각 팩의 earNeedle). */
   pullingNeedle(c, frame) {
     const step = Math.min(frame, 1);
+    const P = c.S.PAWS_REST;
+    const jab = step === 0 ? toolJab(c, 1) : [0, 0];
     return {
       behind: [
-        [S.feedStrand(c.knitLength, c.ball), currentPalette(c)],
-        [S.floorBall(c.ball), currentPalette(c)],
-        ...(step >= 1 ? [[S.earNeedle(), S.NEEDLE]] : [])
+        [c.S.feedStrand(c.knitLength, c.ball), currentPalette(c)],
+        [c.S.floorBall(c.ball), currentPalette(c)],
+        ...(step >= 1 ? [[c.S.earNeedle(), c.S.NEEDLE]] : [])
       ],
       front: [
-        [S.needles(1, step * 2), S.NEEDLE],
-        ...knitLayers(c, false),
-        [S.paws(7, 21, 21 + step * 2, 21 - step * 2), S.BODY]
+        ...heldWork(c, [c.S.needles(1, step * 2), c.S.NEEDLE], false),
+        // 아직 쥐고 있는 프레임(step 0)에서는 손도 도구를 따라갑니다.
+        [c.S.paws(P.lx, P.ly, P.rx + step * 2 + jab[0], P.ry - step * 2 + jab[1]), c.S.BODY]
       ]
     };
   },
 
   yanking(c, frame) {
-    const [rx, ry] = S.yanks[frame % S.yanks.length];
+    const [rx, ry] = c.S.yanks[frame % c.S.yanks.length];
+    const P = c.S.PAWS_REST;
     return {
       behind: [
-        [S.feedStrand(c.knitLength, c.ball), currentPalette(c)],
-        [S.floorBall(c.ball), currentPalette(c)],
-        [S.earNeedle(), S.NEEDLE]
+        [c.S.feedStrand(c.knitLength, c.ball), currentPalette(c)],
+        [c.S.floorBall(c.ball), currentPalette(c)],
+        [c.S.earNeedle(), c.S.NEEDLE]
       ],
       front: [
-        [S.needles(1, 2), S.NEEDLE],
-        ...knitLayers(c, false),
-        [S.pulledYarn(rx, ry), currentPalette(c)],
-        [S.paws(7, 21, rx, ry), S.BODY]
+        ...heldWork(c, [c.S.needles(1, 2), c.S.NEEDLE], false),
+        [c.S.pulledYarn(rx, ry), currentPalette(c)],
+        [c.S.paws(P.lx, P.ly, rx, ry), c.S.BODY]
       ]
     };
   },
@@ -173,13 +223,12 @@ const POSES = {
     if (frame < 3) {
       return {
         behind: [
-          [S.feedStrand(c.knitLength, c.ball), currentPalette(c)],
-          [S.floorBall(c.ball), currentPalette(c)]
+          [c.S.feedStrand(c.knitLength, c.ball), currentPalette(c)],
+          [c.S.floorBall(c.ball), currentPalette(c)]
         ],
         front: [
-          [S.needles(1, 0), S.NEEDLE],
-          ...knitLayers(c, true),
-          [S.paws(7, 21, 21, 21), S.BODY]
+          ...heldWork(c, [c.S.needles(1, 0), c.S.NEEDLE], true),
+          restPaws(c, toolJab(c, 1))
         ]
       };
     }
@@ -190,8 +239,8 @@ const POSES = {
       behind: [],
       front: [
         ...pieceLayers(c, 20),
-        [S.paws(7, 21, 21, 21), S.BODY],
-        [frame === 3 ? S.sparkleBurst() : S.sparkles(frame), S.SPARK]
+        restPaws(c),
+        [frame === 3 ? c.S.sparkleBurst() : c.S.sparkles(frame), c.S.SPARK]
       ]
     };
   },
@@ -203,8 +252,8 @@ const POSES = {
       behind: [],
       front: [
         ...pieceLayers(c, top),
-        [S.sparkles(frame), S.SPARK],
-        ...spreadHold(top)
+        [c.S.sparkles(frame), c.S.SPARK],
+        ...spreadHold(c, top)
       ]
     };
   },
@@ -215,8 +264,8 @@ const POSES = {
       behind: [],
       front: [
         ...pieceLayers(c, 19),
-        [S.sparkles(frame * 2), S.SPARK],
-        ...spreadHold(19)
+        [c.S.sparkles(frame * 2), c.S.SPARK],
+        ...spreadHold(c, 19)
       ]
     };
   },
@@ -227,12 +276,12 @@ const POSES = {
     if (frame === 0) return POSES.holdWork(c);
     return {
       behind: [
-        [S.asideKnit, currentPalette(c)],
-        [S.asideNeedle(), S.NEEDLE],
-        [S.floorBall(c.ball), currentPalette(c)]
+        [c.S.asideKnit, currentPalette(c)],
+        [c.S.asideNeedle(), c.S.NEEDLE],
+        [c.S.floorBall(c.ball), currentPalette(c)]
       ],
       front: [
-        [S.paws(6, 25, 20, 25), S.BODY]
+        [c.S.paws(6, 25, 20, 25), c.S.BODY]
       ]
     };
   },
@@ -244,26 +293,26 @@ const POSES = {
       behind: [],
       front: [
         ...scarfLayers(c),
-        [S.paws(7, 21, 21, 21), S.BODY],
-        [S.hearts(frame), S.NEEDLE]
+        restPaws(c),
+        [c.S.hearts(frame), c.S.NEEDLE]
       ]
     };
   },
 
   /* 편물은 옆에 내려놓고 실뭉치를 품에 안습니다. */
   winding(c, frame) {
-    const held = S.heldBall(c.ball);
+    const held = c.S.heldBall(c.ball);
     const [rx, ry] = held.arc[frame % held.arc.length];
     const [lx, ly] = held.leftPaw;
     return {
       behind: [
-        [S.asideKnit, currentPalette(c)],
-        [S.asideNeedle(), S.NEEDLE],
-        [S.windStrand(c.ball), currentPalette(c)],
+        [c.S.asideKnit, currentPalette(c)],
+        [c.S.asideNeedle(), c.S.NEEDLE],
+        [c.S.windStrand(c.ball), currentPalette(c)],
         [held.sprite, currentPalette(c)]
       ],
       front: [
-        [S.paws(lx, ly, rx, ry), S.BODY]
+        [c.S.paws(lx, ly, rx, ry), c.S.BODY]
       ]
     };
   }
@@ -278,7 +327,7 @@ const ACTIONS = {
     c.rows = Math.max(0, c.rows - 1);
     c.ripped += 1;
     const want = c.visualLength();
-    while (c.knitLength > want && c.pile < S.MAX_PILE) {
+    while (c.knitLength > want && c.pile < c.S.MAX_PILE) {
       c.knitLength -= 1;
       c.pile += 1;
     }
@@ -308,6 +357,10 @@ const CONDITIONS = {
 };
 
 const FINISHED_STATES = new Set(['complete', 'showoff', 'wrapping', 'wearing']);
+
+// 다음 조작을 받아도 되는 상태들 — 나머지는 재생 중인 동작이라
+// 끝날 때까지 기다려야 합니다(snapshot().busy → 버튼 잠금).
+const RESTING_STATES = new Set(['idle', 'showoff', 'wearing']);
 
 // 풀기(dropRow)는 애니메이션의 특정 프레임(rip 의 f3)에서만 실제로
 // 실행됩니다. ripRow() 를 애니메이션 도중 다시 부르면 enter() 가
@@ -383,6 +436,12 @@ export class Companion {
     this.ctx = canvas.getContext('2d');
     this.ctx.imageSmoothingEnabled = false;
 
+    // 스프라이트 팩 — 기본은 단수달(수달). 코토키(토끼) 등 다른
+    // 컨셉은 body/head/faces/paws 같은 공용 부위는 그대로 두고
+    // 귀·꼬리·바늘 같은 캐릭터 고유 부위만 새로 그린 팩을 넘깁니다.
+    // 이 값 하나로 POSES/render() 전체가 갈립니다(아래 c.S.* 참조).
+    this.S = options.sprites ?? S;
+
     // 모델. 실 총량은 knitLength + pile + ball 로 보존되지만, 실
     // 교체(swapYarn) 시점에는 새 실뭉치가 열리는 거라 ball 이 다시
     // 가득 채워집니다 — 그 사이 구간에서만 보존됩니다.
@@ -457,7 +516,10 @@ export class Companion {
       notes: this.notes,
       percent: Math.min(100, Math.round((this.rows / this.target) * 100)),
       finished: this.rows >= this.target,
-      wearing: this.state === 'wearing' || this.state === 'wrapping'
+      wearing: this.state === 'wearing' || this.state === 'wrapping',
+      // 재생 중인 동작이 있는지. enter() 가 상태를 바꿀 때마다 emit()
+      // 하므로 화면은 이 값만 보고 버튼을 잠갔다 풀면 됩니다.
+      busy: !RESTING_STATES.has(this.state)
     };
   }
 
@@ -505,7 +567,7 @@ export class Companion {
         schema: 3,
         colorSegments: Array.isArray(data.colorSegments)
           ? data.colorSegments.map((seg) => ({
-            from: Math.round(((seg?.from ?? 0) / S.MAX_KNIT) * (data.target || 1)),
+            from: Math.round(((seg?.from ?? 0) / this.S.MAX_KNIT) * (data.target || 1)),
             color: seg?.color
           }))
           : data.colorSegments
@@ -517,8 +579,8 @@ export class Companion {
     if (!isNonNegNumber(data.target) || data.target < 1) return false;
     if (!isNonNegNumber(data.rows)) return false;
     if (!isNonNegNumber(data.ripped)) return false;
-    if (!isNonNegNumber(data.knitLength) || data.knitLength > S.MAX_KNIT) return false;
-    if (!isNonNegNumber(data.pile) || data.pile > S.MAX_PILE) return false;
+    if (!isNonNegNumber(data.knitLength) || data.knitLength > this.S.MAX_KNIT) return false;
+    if (!isNonNegNumber(data.pile) || data.pile > this.S.MAX_PILE) return false;
     if (!isNonNegNumber(data.ball)) return false;
     if (!isNonNegNumber(data.initialBall)) return false;
     if (!isNonNegNumber(data.usedBall)) return false;
@@ -556,7 +618,7 @@ export class Companion {
   }
 
   visualLength() {
-    return Math.min(S.MAX_KNIT, Math.round((this.rows / this.target) * S.MAX_KNIT));
+    return Math.min(this.S.MAX_KNIT, Math.round((this.rows / this.target) * this.S.MAX_KNIT));
   }
 
   /**
@@ -581,7 +643,7 @@ export class Companion {
    */
   knitLengthSegments() {
     return this.colorSegments.map((seg) => ({
-      from: Math.min(S.MAX_KNIT, Math.round((seg.from / this.target) * S.MAX_KNIT)),
+      from: Math.min(this.S.MAX_KNIT, Math.round((seg.from / this.target) * this.S.MAX_KNIT)),
       color: seg.color
     }));
   }
@@ -667,7 +729,7 @@ export class Companion {
       this.onStatus('풀 게 없습니다');
       return;
     }
-    if (this.pile >= S.MAX_PILE) {
+    if (this.pile >= this.S.MAX_PILE) {
       this.pendingRips = 0;
       this.onStatus('바닥이 꽉 찼습니다. 실을 감아주세요.');
       return;
@@ -919,17 +981,23 @@ export class Companion {
 
   render() {
     const ctx = this.ctx;
+    const S = this.S;
     const def = STATES[this.state] ?? STATES.idle;
     const pose = POSES[def.pose](this, this.frame);
 
-    ctx.clearRect(0, 0, SIZE, SIZE);
+    // 캔버스 크기는 고정 상수가 아니라 실제 <canvas> 엘리먼트를
+    // 따라갑니다 — 코토키처럼 귀 공간을 위해 세로로 더 큰 캔버스를
+    // 쓰는 컨셉도 그대로 지원됩니다.
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     const tailOffset = def.wagTail ? (this.frame % 8 < 4 ? 0 : 1) : 0;
     blit(ctx, S.tail(tailOffset), S.BODY);
     blit(ctx, S.body, S.BODY);
 
     pose.behind.forEach(([sprite, palette]) => blit(ctx, sprite, palette));
 
-    blit(ctx, S.ears[def.ears], S.BODY);
+    // 팩마다 가진 귀 모양이 다릅니다 — 코토키만 쓰는 halfDroop 처럼
+    // 없는 모양을 요구받으면 기본 귀로 떨어집니다.
+    blit(ctx, S.ears[def.ears] ?? S.ears.normal, S.BODY);
     blit(ctx, S.head, S.BODY);
 
     const faceKey = (def.face === 'neutral' && this.blink) ? 'flat' : def.face;

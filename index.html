@@ -23,6 +23,39 @@
        묻혔던 문제라, 카드보다 확실히 밝은 흰색 계열로 띄웁니다. */
     --stage-bg: #fffaf1;
     --zoom: 1;
+
+    /* 컨셉 탭 전용 고정색 — data-concept 로 전환되는 위 변수들과
+       달리 항상 각자 브랜드 색 그대로입니다(요청: "코토키 페이지에서
+       단수달 탭은 갈색으로, 단수달 페이지에서 코토키 탭은 분홍으로,
+       원래 각자 색으로"). */
+    --otter-ink: #3b2a1c;
+    --otter-muted: #8a7561;
+    --otter-paper: #fbf6ee;
+    --otter-card: #f3ead9;
+    --otter-line: #e0d2bd;
+    --rabbit-ink: #5c3a42;
+    --rabbit-muted: #a5868d;
+    --rabbit-paper: #fdf7f6;
+    --rabbit-card: #f6e8e6;
+    --rabbit-line: #ecd8d5;
+    /* 탭 바 밑줄은 어느 탭이 활성이냐가 아니라 "지금 보고 있는 페이지"
+       를 따라갑니다 — 단수달의 따뜻한 회갈색 줄을 코토키 분홍 화면에
+       그대로 쓰면 그 줄만 누렇게 떠 보였습니다. */
+    --tabs-line: #e3d6d2;
+  }
+  /* 코토키(코바늘+토끼) 컨셉 — 따뜻한 갈색 톤(단수달) 대신 훨씬
+     차분한(채도를 낮춘) 분홍 톤. 활성 탭에 따라 app.js 가
+     html[data-concept] 를 바꾸면, 같은 클래스를 쓰는 모든 UI가 이
+     변수만으로 자동으로 분홍 테마가 됩니다(스타일 규칙 중복 없음). */
+  :root[data-concept="rabbit"] {
+    --ink: var(--rabbit-ink);
+    --muted: var(--rabbit-muted);
+    --paper: var(--rabbit-paper);
+    --card: var(--rabbit-card);
+    --line: var(--rabbit-line);
+    --yarn: #b5707e;
+    --stage-bg: #fffcfb;
+    --tabs-line: #e8d3ce;
   }
   * { box-sizing: border-box; }
   body {
@@ -49,6 +82,66 @@
   }
   .bottom-bar-inner { max-width: 420px; margin: 0 auto; }
   .bottom-bar footer { margin-top: 0; padding-top: 0; border-top: none; }
+
+  /* 컨셉 전환 탭 — 폴더 인덱스처럼, 활성 탭만 아래쪽 화면(--paper)과
+     이어져 보이게 하고 비활성 탭은 --card 톤으로 살짝 가라앉힙니다.
+     탭 바 밑줄(border-bottom)이 활성 탭 자리에서만 끊기도록, 활성
+     탭에 카드와 같은 배경 + 좌우/위 테두리 + 투명 밑줄을 줍니다. */
+  .concept-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--tabs-line);
+  }
+  .concept-tab {
+    flex: none;
+    min-width: 0;
+    position: relative;
+    top: 1px;
+    padding: 9px 14px;
+    font: inherit;
+    font-weight: 600;
+    background: #fff;
+    border: 1.5px solid;
+    border-radius: 10px 10px 0 0;
+    cursor: pointer;
+  }
+  /* 탭은 지금 어느 컨셉이 활성인지와 무관하게 항상 자기 브랜드 색
+     윤곽선 + 흰 배경입니다 — 위 :root 의 고정 --otter-*/--rabbit-*
+     변수 참조. 활성 탭만 아래쪽 테두리를 지금 페이지 배경(--paper,
+     활성 컨셉에 따라 자동으로 바뀜)과 같은 색으로 칠해 내용과
+     이어져 보이게 합니다. */
+  .concept-tab[data-concept="otter"] {
+    color: var(--otter-muted);
+    border-color: var(--otter-muted);
+  }
+  .concept-tab[data-concept="otter"]:hover { color: var(--otter-ink); border-color: var(--otter-ink); }
+  .concept-tab[data-concept="otter"][aria-selected="true"] {
+    color: var(--otter-ink);
+    border-color: var(--otter-ink);
+    border-bottom-color: var(--paper);
+  }
+  .concept-tab[data-concept="rabbit"] {
+    color: var(--rabbit-muted);
+    border-color: var(--rabbit-muted);
+  }
+  .concept-tab[data-concept="rabbit"]:hover { color: var(--rabbit-ink); border-color: var(--rabbit-ink); }
+  .concept-tab[data-concept="rabbit"][aria-selected="true"] {
+    color: var(--rabbit-ink);
+    border-color: var(--rabbit-ink);
+    border-bottom-color: var(--paper);
+  }
+  .concept-tab[aria-selected="true"] { z-index: 1; }
+  .concept-tab:focus-visible { outline: 2px solid var(--yarn); outline-offset: 2px; }
+
+  .concept-panel[hidden] { display: none; }
+  /* 코토키 캔버스 확대/축소는 단수달의 --zoom(문서 루트)과 독립적으로
+     이 서브트리에서만 값을 가집니다 — 지금은 확대/축소 버튼이 없어
+     항상 1이지만, 나중에 붙이면 이 선언 하나로 서로 안 섞입니다. */
+  #panel-rabbit { --zoom: 1; }
+  /* 코토키 캔버스는 33열이라 32열 기준 너비(224px = 32×7)로 늘리면
+     한 칸이 6.79px 이 되어 픽셀이 뭉개집니다 — 33×7 로 맞춥니다. */
+  #panel-rabbit .pixel-stage { width: min(calc(231px * var(--zoom)), 100%); }
 
   .page-head {
     display: flex;
@@ -82,7 +175,11 @@
     padding: clamp(14px, 4vw, 20px);
     text-align: center;
   }
-  #stage {
+  /* 두 컨셉의 캔버스가 공유하는 크기 규칙. 단수달(#stage)은 지금처럼
+     문서 루트의 --zoom(확대/축소 버튼)을 그대로 물려받고, 코토키
+     (#r-stage)는 #panel-rabbit 에서 --zoom 을 1로 새로 선언해두어
+     서로 독립적입니다(아래 #panel-rabbit 규칙 참조). */
+  .pixel-stage {
     width: min(calc(224px * var(--zoom)), 100%);
     image-rendering: pixelated;
     display: block;
@@ -243,6 +340,17 @@
   }
   button:hover { background: var(--card); }
   button:active { transform: translateY(1px); }
+  /* 캐릭터가 한 동작을 하는 동안에는 다른 동작 버튼을 잠급니다 —
+     동작이 겹치면 애니메이션이 서로를 끊어먹습니다(companion-app.js
+     의 snapshot.busy). 눌리지 않는다는 걸 눈으로도 알 수 있게
+     연하게 + 커서까지 바꿉니다. */
+  button:disabled {
+    opacity: 0.45;
+    cursor: default;
+    transform: none;
+  }
+  button:disabled:hover { background: #fff; }
+  #add:disabled:hover { background: #e3f2ec; }
   button:focus-visible { outline: 2px solid var(--yarn); outline-offset: 2px; }
   /* 기본 액션(한 단 뜨기) — 진한 색 배경 + 흰 글씨는 대비는 나쁘지
      않지만 카드 위주의 파스텔 톤 화면에서 혼자 튀어 보였습니다.
@@ -423,7 +531,14 @@
     </clipPath>
   </defs>
 </svg>
+<nav class="concept-tabs" role="tablist" aria-label="컨셉 전환">
+  <button type="button" class="concept-tab" role="tab" id="tab-otter"
+          data-concept="otter" aria-selected="true" aria-controls="panel-otter">단수달 🦦</button>
+  <button type="button" class="concept-tab" role="tab" id="tab-rabbit"
+          data-concept="rabbit" aria-selected="false" aria-controls="panel-rabbit">코토키 🐰</button>
+</nav>
 <main>
+<section id="panel-otter" class="concept-panel" role="tabpanel" aria-labelledby="tab-otter">
   <div class="page-head">
     <h1>단수달 🦦</h1>
     <div class="zoom-controls">
@@ -434,7 +549,7 @@
 
   <div class="stage-wrap">
     <div class="speech-bubble kind-chat" id="bubble">대기 중</div>
-    <canvas id="stage" width="32" height="32"
+    <canvas id="stage" class="pixel-stage" width="32" height="32"
             aria-label="뜨개질하는 수달 캐릭터"></canvas>
     <p id="status" class="sr-only" aria-live="polite">대기 중</p>
   </div>
@@ -512,20 +627,116 @@
       </div>
     </form>
   </div>
+</section>
+
+<section id="panel-rabbit" class="concept-panel" role="tabpanel" aria-labelledby="tab-rabbit" hidden>
+  <div class="page-head">
+    <h1>코토키 🐰</h1>
+    <div class="zoom-controls">
+      <button id="r-zoomOut" type="button" aria-label="캐릭터 작게 보기">−</button>
+      <button id="r-zoomIn" type="button" aria-label="캐릭터 크게 보기">+</button>
+    </div>
+  </div>
+
+  <div class="stage-wrap">
+    <div class="speech-bubble kind-chat" id="r-bubble">대기 중</div>
+    <!-- 코토키는 가운데 열 위에 좌우 대칭축을 두려고 33열을 씁니다
+         (rabbit/sprites.js 의 WIDTH 참조). -->
+    <canvas id="r-stage" class="pixel-stage" width="33" height="40"
+            aria-label="코바늘 뜨는 토끼 캐릭터"></canvas>
+    <p id="r-status" class="sr-only" aria-live="polite">대기 중</p>
+  </div>
+
+  <div class="progress">
+    <div class="progress-head">
+      <span>진행</span><span id="r-percent">0%</span>
+    </div>
+    <div class="row-grid-wrap">
+      <div class="row-grid" id="r-rowGrid"></div>
+    </div>
+  </div>
+
+  <dl class="stats">
+    <div class="stat">
+      <dt>뜬 단수/총 단수</dt>
+      <dd>
+        <span id="r-rows">0</span> /
+        <input type="number" id="r-target" value="20" min="1" max="999" required />
+      </dd>
+    </div>
+    <div class="stat">
+      <dt>쓴 볼 수/보유 볼 수</dt>
+      <dd>
+        <button id="r-ballMinus" type="button" aria-label="쓴 볼 수 줄이기">−</button>
+        <span id="r-usedBall">0</span>
+        <button id="r-ballPlus" type="button" aria-label="쓴 볼 수 늘리기">+</button>
+        /
+        <input type="number" id="r-totalBall" min="0" max="999" placeholder="-" />
+      </dd>
+    </div>
+  </dl>
+
+  <div class="controls">
+    <button id="r-add">🧶 한 단 떴어요</button>
+    <button id="r-rip">✂️ 한 단 풀기</button>
+    <button id="r-wind">🧵 실 감기</button>
+    <button id="r-swap" type="button">🎨 실 색 바꾸기</button>
+    <button id="r-notesToggle" type="button">🔔 알림</button>
+    <button id="r-wear" hidden>🧣 입어보기</button>
+    <button id="r-reset" type="button">🔁 새로 뜨기</button>
+  </div>
+
+  <div class="stash" id="r-stash" hidden>
+    <p class="hint">🎨 새로 쓸 실 색을 골라주세요</p>
+    <div class="stash-grid" id="r-stashGrid"></div>
+  </div>
+
+  <div class="notes" id="r-notesPanel" hidden>
+    <p class="hint">🔔 특정 단이나 몇 단마다 알려줄 알림을 만들어보세요</p>
+    <ul class="notes-list" id="r-notesList"></ul>
+    <form id="r-noteForm" class="note-form">
+      <div class="note-type">
+        <label><input type="radio" name="r-noteType" value="row" checked /> 특정 단</label>
+        <label><input type="radio" name="r-noteType" value="every" /> 매 N단</label>
+      </div>
+      <div class="note-fields">
+        <input type="number" id="r-noteNumber" min="1" max="999" placeholder="단수" required />
+        <input type="text" id="r-noteMessage" maxlength="40" placeholder="알림 (예: 코 줄임)" required />
+      </div>
+      <div class="note-fields note-range" id="r-noteRange" hidden>
+        <input type="number" id="r-noteFrom" min="1" max="999" placeholder="시작 단(기본 1)" />
+        <span class="note-range-sep">~</span>
+        <input type="number" id="r-noteTo" min="1" max="999" placeholder="끝 단(기본 총 단수)" />
+      </div>
+      <div class="note-presets">
+        <button type="button" class="preset" data-msg="코 줄임">코 줄임</button>
+        <button type="button" class="preset" data-msg="코 늘림">코 늘림</button>
+        <button type="button" class="preset" data-msg="꽈배기">꽈배기</button>
+        <button type="button" class="preset" data-msg="실 색 바꾸기">실 색 바꾸기</button>
+      </div>
+      <div class="note-actions">
+        <button type="submit" id="r-noteSubmit">추가</button>
+        <button type="button" id="r-noteCancel" hidden>취소</button>
+      </div>
+    </form>
+  </div>
+</section>
 </main>
 
 <div class="bottom-bar">
   <div class="bottom-bar-inner">
-    <p class="hint">스페이스바로 한 단 추가, 백스페이스로 한 단 풀기, W로 실 감기</p>
+    <p class="hint" id="shortcutHint">스페이스바로 한 단 추가, 백스페이스로 한 단 풀기, W로 실 감기</p>
     <p class="hint">진행 상황은 이 브라우저에만 저장돼요. 다른 기기에서는 이어지지 않아요.</p>
     <footer>
-      단수달 &copy; 2026
+      단수달 · 코토키 &copy; 2026
       <a href="https://instagram.com/tteoboja_0" rel="noopener">@tteoboja_0</a>.
       무단 재배포를 금합니다.
     </footer>
   </div>
 </div>
 
-<script type="module" src="./src/main.js"></script>
+<script type="module" src="./src/otter/main.js"></script>
+<script type="module" src="./src/rabbit/main.js"></script>
+<script type="module" src="./src/app.js"></script>
 </body>
 </html>
