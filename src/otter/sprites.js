@@ -6,7 +6,7 @@
  * https://instagram.com/tteoboja_0
  */
 
-import { pad, buffer, put, line } from './pixel.js';
+import { pad, buffer, put, line } from '../pixel.js';
 
 export const SIGNATURE = '@tteoboja_0';
 
@@ -259,18 +259,21 @@ export function arm(x0, y0, x1, y1) {
  * 위·아래를 어두운 캡(o)으로 막아야 배경과 경계가 생깁니다.
  * 원래는 윗줄이 속살(p)이라 밝은 배경 위에서 위쪽 테두리가 없어
  * 손끝이 배경에 스몄습니다.
+ *
+ * 몸 쪽(안쪽) 한 줄만 테두리 대신 그늘(a)이었습니다 — 팔이 거기
+ * 붙으니 이어 보이라고 그랬지만, 팔 없이 손만 찍는 자세(편물을 쥔
+ * 평소 모습)에서는 안쪽 면만 테두리가 없어 손이 편물에 스몄습니다.
+ * 네 면을 다 두르고, 팔은 어차피 손보다 먼저 그려져 손 뒤로 들어갑니다.
  */
 export function paws(lx, ly, rx, ry) {
   const buf = buffer();
-  const cap = ['o', 'o', 'o', 'a'];
-  const capMirror = ['a', 'o', 'o', 'o'];
-  const fill = ['o', 'p', 'p', 'a'];
-  const fillMirror = ['a', 'p', 'p', 'o'];
+  const cap = ['o', 'o', 'o', 'o'];
+  const fill = ['o', 'p', 'p', 'o'];
   [cap, fill, cap].forEach((row, r) => {
-    row.forEach((ch, i) => put(buf, lx + i, ly + r, ch));
-  });
-  [capMirror, fillMirror, capMirror].forEach((row, r) => {
-    row.forEach((ch, i) => put(buf, rx + i, ry + r, ch));
+    row.forEach((ch, i) => {
+      put(buf, lx + i, ly + r, ch);
+      put(buf, rx + i, ry + r, ch);
+    });
   });
   return pad(buf);
 }

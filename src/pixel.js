@@ -5,14 +5,20 @@
  * https://instagram.com/tteoboja_0
  */
 
+// 단수달의 기본(정사각) 캔버스 크기입니다. 더 이상 모든 스프라이트가
+// 반드시 이 크기여야 하는 건 아닙니다 — pad()/blit()/sliceRows() 는
+// 실제 배열 길이·행 길이를 따라가므로, 다른 컨셉이 더 큰(특히 더
+// 높은) 캔버스를 쓰고 싶으면 pad() 에 height/width 를 넘기면 됩니다
+// (코토키가 귀 공간을 위해 이렇게 씁니다 — rabbit/sprites.js 참조).
 export const SIZE = 32;
 const EMPTY_ROW = '.'.repeat(SIZE);
 
-/** 듬성듬성 정의한 행 객체를 32행짜리 스프라이트로 채웁니다. */
-export function pad(rows) {
+/** 듬성듬성 정의한 행 객체를 height 행짜리(기본 32) 스프라이트로 채웁니다. */
+export function pad(rows, height = SIZE, width = SIZE) {
+  const emptyRow = width === SIZE ? EMPTY_ROW : '.'.repeat(width);
   const out = [];
-  for (let y = 0; y < SIZE; y++) {
-    out.push(rows[y] !== undefined ? rows[y] : EMPTY_ROW);
+  for (let y = 0; y < height; y++) {
+    out.push(rows[y] !== undefined ? rows[y] : emptyRow);
   }
   return out;
 }
@@ -22,8 +28,12 @@ export function buffer() {
   return {};
 }
 
+// 가로(x)는 지금 모든 컨셉이 32 로 같아서 그대로 고정폭으로 막고,
+// 세로(y)는 pad() 의 height 인자가 최종 크기를 정하므로 여기서는
+// 음수만 막습니다 — 더 큰 y 에 써도 pad() 가 요청한 높이 밖이면
+// 그냥 잘려서 나갑니다(에러 없이 조용히 버려짐).
 export function put(buf, x, y, ch) {
-  if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) return;
+  if (x < 0 || x >= SIZE || y < 0) return;
   if (!buf[y]) buf[y] = EMPTY_ROW;
   buf[y] = buf[y].substring(0, x) + ch + buf[y].substring(x + 1);
 }
@@ -37,8 +47,9 @@ export function line(buf, x0, y0, x1, y1, ch) {
   let err = dx - dy;
   let x = x0;
   let y = y0;
+  const guardMax = (Math.max(dx, dy) + 2) * 2;
 
-  for (let guard = 0; guard < SIZE * 2; guard++) {
+  for (let guard = 0; guard < guardMax; guard++) {
     put(buf, x, y, ch);
     if (x === x1 && y === y1) break;
     const e2 = 2 * err;
@@ -50,25 +61,46 @@ export function line(buf, x0, y0, x1, y1, ch) {
 /**
  * 스프라이트에서 [fromY, toY] 구간의 행만 남기고 나머지는 지운
  * 복사본을 만듭니다. 같은 스프라이트를 실 색 구간별로 나눠 각기
- * 다른 팔레트로 블릿할 때 씁니다.
+ * 다른 팔레트로 블릿할 때 씁니다. 스프라이트 자신의 길이·행 폭을
+ * 그대로 따라가므로 32행짜리가 아니어도 그대로 동작합니다.
  */
 export function sliceRows(sprite, fromY, toY) {
+  const width = sprite[0]?.length ?? SIZE;
+  const emptyRow = width === SIZE ? EMPTY_ROW : '.'.repeat(width);
   const out = [];
-  for (let y = 0; y < SIZE; y++) {
-    out.push(y >= fromY && y <= toY ? sprite[y] : EMPTY_ROW);
+  for (let y = 0; y < sprite.length; y++) {
+    out.push(y >= fromY && y <= toY ? sprite[y] : emptyRow);
   }
   return out;
 }
 
 /**
- * 스프라이트 한 장을 캔버스에 찍습니다.
+ * 스프라이트를 아래로 offset 만큼 밀어낸 복사본을 만듭니다. 다른
+ * 컨셉이 캔버스를 세로로 더 크게 잡고 위쪽에 생긴 여백에 자기만의
+ * 요소(귀 등)를 그리면서, 재사용하는 스프라이트(몸통·얼굴 등)는
+ * 원래 좌표를 그대로 두고 이걸로 한 번에 아래로 옮길 때 씁니다.
+ */
+export function shiftRows(sprite, offset, height = sprite.length + offset) {
+  const width = sprite[0]?.length ?? SIZE;
+  const emptyRow = width === SIZE ? EMPTY_ROW : '.'.repeat(width);
+  const out = [];
+  for (let y = 0; y < height; y++) {
+    const srcY = y - offset;
+    out.push(srcY >= 0 && srcY < sprite.length ? sprite[srcY] : emptyRow);
+  }
+  return out;
+}
+
+/**
+ * 스프라이트 한 장을 캔버스에 찍습니다. 스프라이트 자신의 길이·행
+ * 폭을 그대로 따라가므로 32×32 가 아니어도 그대로 동작합니다.
  * palette 에 없는 문자와 '.' 은 투명으로 건너뜁니다.
  */
 export function blit(ctx, sprite, palette) {
-  for (let y = 0; y < SIZE; y++) {
+  for (let y = 0; y < sprite.length; y++) {
     const row = sprite[y];
     if (!row) continue;
-    for (let x = 0; x < SIZE; x++) {
+    for (let x = 0; x < row.length; x++) {
       const ch = row[x];
       if (!ch || ch === '.') continue;
       const color = palette[ch];

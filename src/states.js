@@ -8,7 +8,7 @@
  * 상태 하나는 아래 항목으로 기술합니다.
  *
  *   pose      렌더러가 어떤 자세로 그릴지 (engine.js 의 POSES 키)
- *   ears      'normal' | 'droop'
+ *   ears      'normal' | 'droop' | 'halfDroop'
  *   face      'neutral' | 'flat' | 'annoyed' | 'proud' | 'starry'
  *   frames    이 상태가 소비하는 프레임 수. null 이면 조건이 끝날 때까지 반복
  *   frameMs   프레임 간격
@@ -99,7 +99,9 @@ export const STATES = {
      동작이 최소 한 바퀴는 눈에 보이도록 합니다. */
   wind: {
     pose: 'winding',
-    ears: 'normal',
+    // 실을 감는 동안만 귀를 반씩 접습니다(코토키). 이 모양이 없는
+    // 팩은 render() 가 normal 로 떨어뜨립니다.
+    ears: 'halfDroop',
     face: 'flat',
     frames: null,
     frameMs: 170,
