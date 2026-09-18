@@ -22,7 +22,7 @@
  * "어디에 찍힐지"만 이 팩이 나중에 옮깁니다.
  */
 
-import { pad, buffer, put, line, shiftRows } from '../pixel.js';
+import { SIZE, pad, buffer, put, line, shiftRows } from '../pixel.js';
 import {
   body as otterBody,
   head as otterHead,
@@ -36,7 +36,6 @@ import {
   RIGHT_PIVOT,
   KNIT_TOP as OTTER_KNIT_TOP,
   MAX_KNIT,
-  knit as otterKnit,
   asideKnit as otterAsideKnit,
   ballTier,
   floorBall as otterFloorBall,
@@ -49,7 +48,6 @@ import {
   pile as otterPile,
   yanks,
   finishedPiece as otterFinishedPiece,
-  FINISHED_PIECE_SPAN,
   wornScarf as otterWornScarf,
   SPARK,
   sparkles as otterSparkles,
@@ -66,33 +64,66 @@ import {
 export const SHIFT = 8;
 const HEIGHT = 32 + SHIFT;
 
+/* 가로도 단수달(32열)보다 한 열 넓은 33열을 씁니다.
+
+   32열에서는 좌우 대칭축이 열과 열 사이(x15.5)에 떨어져서, 가운데에
+   놓는 것은 무엇이든 짝수 폭일 수밖에 없었습니다 — 1px 인중을 그릴
+   수가 없어 코 밑 세로선이 늘 2px 로 굵게 뭉쳤습니다. 가운데에 열
+   하나를 끼워 넣으면 대칭축이 그 열(x16) 위에 놓여 홀수 폭(1px·3px)
+   도 정확히 가운데 정렬됩니다.
+
+   재사용하는 단수달 스프라이트는 widen() 이 한가운데 열을 복제해
+   끼워 넣는 식으로 넓힙니다. 몸통·머리처럼 가운데가 단색으로 채워진
+   부위는 같은 색 한 줄이 늘 뿐이라 티가 안 나고, 오른쪽에 있던
+   것들(오른손·실뭉치 등)은 자동으로 한 칸씩 밀려 새 대칭축에
+   맞습니다 — 좌표를 일일이 고칠 필요가 없습니다. 가운데에 무늬가
+   지나가는 편물만은 복제하면 코가 겹쳐 보여서 따로 그립니다(knit).
+
+   대칭 규칙: 열 하나짜리 중심은 x16, 좌우 한 쌍은 합이 32(픽셀 인덱스)
+   또는 33(타원 중심처럼 x+0.5 로 재는 값)이어야 합니다. */
+export const WIDTH = 33;
+const CENTER = 16;
+
 const shift = (sprite) => shiftRows(sprite, SHIFT, HEIGHT);
+const widen = (sprite) => sprite.map((row) => row.slice(0, CENTER) + row[CENTER - 1] + row.slice(CENTER));
+/** 단수달 스프라이트를 이 팩의 캔버스(33 × 40)로 옮깁니다. */
+const adapt = (sprite) => widen(shift(sprite));
+const padR = (rows, height = HEIGHT) => pad(rows, height, WIDTH);
 
-export const body = shift(otterBody);
+export const body = adapt(otterBody);
 
-// 단수달의 주둥이(연한 l 영역)는 뺨에서 뺨까지 넓게 퍼진 가로 띠라
-// 수달답지만 토끼에는 헐렁해 보입니다 — 같은 자리(코·입 픽셀은 그대로)
-// 를 좁은 위 + 넓은 아래, 즉 아래쪽이 더 두툼한 반원으로 다시 그립니다.
-// 각 줄은 머리 대칭축(x15.5)을 기준으로 짝수 칸이어야 합니다 — 홀수
-// 칸이면 한쪽으로 반 칸 치우쳐 대칭이 깨집니다.
-// 아래 세 줄(16~18)은 x11~20, 위 두 줄은 x12~19 / x13~18 로 좁힙니다.
-// 머리 외곽선과 볼터치(fff)는 단수달 것을 그대로 둡니다.
-// 입은 단수달처럼 가로줄(-) 하나만 두면 밋밋해서 ㅗ 모양으로 세웁니다
-// ("약간 발랄한 토끼 느낌"). 처음엔 코 바로 밑(y15)에 인중을 붙였다가
-// 코와 한 덩어리로 뭉쳤습니다 — 좌우 대칭축이 열과 열 사이(x15.5)라
-// 가운데 세로선은 아무리 얇아도 2px 이고, 그게 2px 짜리 코 바로 밑에
-// 붙으면 2×2 블록이 되기 때문입니다. 그래서 코와 입 사이를 한 줄
-// 비우고(y15), 입을 인중(y16) + 그보다 넉넉히 넓은 가로바(y17)로
-// 따로 세워 ㅗ 로 읽히게 했습니다.
-const MUZZLE_ROWS = {
-  14: '....offfbbbbbllmmllbbbbbfffo....',
-  15: '....offfbbbbllllllllbbbbfffo....',
-  16: '.....offbbbllllmmllllbbbffo.....',
-  17: '......obbbbllmmmmmmllbbbbo......'
+/* 눈과 주둥이 — 단수달 머리에서 이 부분만 다시 그립니다(외곽선과
+   볼터치 fff 는 그대로).
+
+   눈은 단수달 자리(넓힌 뒤 x9~11 / x21~23)에서 좌우 한 칸씩 안으로
+   당겨 x10~12 / x20~22 에 둡니다 — 토끼 머리가 단수달보다 크고 둥글어
+   같은 자리에 두면 눈이 멀어 보였습니다. 눈동자 하이라이트(w)는
+   단수달처럼 두 눈 다 왼쪽에 둡니다.
+
+   단수달의 주둥이(연한 l)는 뺨에서 뺨까지 퍼진 넓은 가로 띠라
+   수달답지만 토끼에는 헐렁해서, 위는 좁고 아래로 갈수록 넓어지는
+   반원으로 좁혔습니다.
+
+   입은 가로줄(-) 하나 대신 ㅗ 입니다. 33열로 넓히기 전에는 인중이
+   최소 2px 이라 2px 짜리 코와 붙어 덩어리로 뭉쳤는데, 이제 가운데
+   열(x16)이 있어 인중을 1px 로 세울 수 있습니다 — 3px 코 / 1px 인중 /
+   5px 가로바로 굵기가 확실히 달라서 코·인중·입이 따로 읽힙니다.
+
+   행 번호는 최종 좌표(이미 SHIFT 만큼 밀린 값)이고, 폭도 이미 33열
+   이라 widen() 을 거치지 않습니다. */
+const HEAD_ROWS = {
+  18: '.....obbbbweebbbbbbbweebbbbo.....',
+  19: '.....obbbbeeebbbbbbbeeebbbbo.....',
+  20: '.....obbbbeeebbbbbbbeeebbbbo.....',
+  21: '.....obbbbeeebbbbbbbeeebbbbo.....',
+  22: '....offfbbbbbllmmmllbbbbbfffo....',
+  23: '....offfbbbbllllmllllbbbbfffo....',
+  24: '.....offbbblllmmmmmlllbbbffo.....',
+  25: '......obbbblllllllllllbbbbo......'
 };
 
-export const head = shift(otterHead.map((row, y) => MUZZLE_ROWS[y] ?? row));
-export const bang = shift(otterBang);
+export const head = adapt(otterHead).map((row, y) => HEAD_ROWS[y] ?? row);
+export const bang = adapt(otterBang);
 
 /* 표정은 대부분 단수달 것을 그대로 쓰지만 두 개만 토끼용으로 다시
    그립니다.
@@ -106,36 +137,76 @@ export const bang = shift(otterBang);
 
    proud(입어보기) — 뒤집힌 U 대신 ><. 양 눈이 서로 마주 보게 꺾여
    더 토끼답고 신나 보입니다. */
+/* 눈을 안쪽으로 당겼으니(위 HEAD_ROWS) 눈을 건드리는 표정은 전부 이
+   팩에서 다시 그립니다 — 단수달 것을 그대로 쓰면 덮개·눈꺼풀이 원래
+   자리에 찍혀 눈이 반만 가려집니다. 행 번호는 단수달 기준(밀기 전)
+   이고 폭만 이미 33열이라, shift 만 하고 widen 은 하지 않습니다. */
+const faceRows = (rows) => [pad(rows, SIZE, WIDTH)];
+const EYE_COVER_ROW = '..........bbb.......bbb..........';
+
 const RABBIT_FACES = {
-  annoyed: [pad({
-    10: '.........bbb........bbb.........',
-    11: '.........vvv........vvv.........'
-  })],
-  proud: [pad({
-    10: '.........bbb........bbb.........',
-    11: '.........eeb........bee.........',
-    12: '.........bbe........ebb.........',
-    13: '.........eeb........bee.........'
-  })]
+  flat: [
+    pad({ 10: EYE_COVER_ROW, 11: EYE_COVER_ROW, 12: EYE_COVER_ROW, 13: EYE_COVER_ROW }, SIZE, WIDTH),
+    pad({ 12: '..........eee.......eee..........' }, SIZE, WIDTH)
+  ],
+  annoyed: faceRows({
+    10: EYE_COVER_ROW,
+    11: '..........vvv.......vvv..........'
+  }),
+  proud: faceRows({
+    10: EYE_COVER_ROW,
+    11: '..........eeb.......bee..........',
+    12: '..........bbe.......ebb..........',
+    13: '..........eeb.......bee..........'
+  }),
+  // 기본 눈은 그대로 두고 대각선 아래에 반짝임 한 점만 더합니다.
+  starry: faceRows({ 11: '............w.......w............' })
 };
 
 export const faces = Object.fromEntries(
   Object.entries(otterFaces).map(([key, layers]) => [
     key,
-    // RABBIT_FACES 도 단수달 좌표로 그렸으니 똑같이 밀어서 씁니다.
-    (RABBIT_FACES[key] ?? layers)?.map(shift) ?? null
+    RABBIT_FACES[key] ? RABBIT_FACES[key].map(shift) : (layers?.map(adapt) ?? null)
   ])
 );
 
-export function arm(x0, y0, x1, y1) { return shift(otterArm(x0, y0, x1, y1)); }
-export function paws(lx, ly, rx, ry) { return shift(otterPaws(lx, ly, rx, ry)); }
-export function knit(length, flash) { return shift(otterKnit(length, flash)); }
-export const asideKnit = shift(otterAsideKnit);
-export function floorBall(amount) { return shift(otterFloorBall(amount)); }
-export function feedStrand(knitLength, ballAmount) { return shift(otterFeedStrand(knitLength, ballAmount)); }
-export function windStrand(ballAmount) { return shift(otterWindStrand(ballAmount)); }
-export function pulledYarn(rx, ry) { return shift(otterPulledYarn(rx, ry)); }
-export function pile(amount) { return shift(otterPile(amount)); }
+export function arm(x0, y0, x1, y1) { return adapt(otterArm(x0, y0, x1, y1)); }
+export function paws(lx, ly, rx, ry) { return adapt(otterPaws(lx, ly, rx, ry)); }
+export const asideKnit = adapt(otterAsideKnit);
+export function floorBall(amount) { return adapt(otterFloorBall(amount)); }
+export function feedStrand(knitLength, ballAmount) { return adapt(otterFeedStrand(knitLength, ballAmount)); }
+export function windStrand(ballAmount) { return adapt(otterWindStrand(ballAmount)); }
+export function pulledYarn(rx, ry) { return adapt(otterPulledYarn(rx, ry)); }
+export function pile(amount) { return adapt(otterPile(amount)); }
+
+/* 편물만은 넓히지 않고 다시 그립니다 — 가운데로 코 무늬가 지나가서,
+   widen() 이 가운데 열을 복제하면 같은 코가 두 번 찍혀 체크무늬에
+   세로 이음매가 생깁니다. 폭을 9칸(x12~20, 합 32 → 대칭)으로 잡고
+   무늬를 새로 깔면 이음매 없이 떨어집니다. 좌표는 최종 기준입니다. */
+const KNIT_LEFT = 12;
+const KNIT_RIGHT = 20;
+
+export function knit(length, flash = false) {
+  const buf = buffer();
+  if (length <= 0) return padR(buf);
+  const edge = (y) => {
+    for (let x = KNIT_LEFT; x <= KNIT_RIGHT; x++) put(buf, x, y, 'k');
+  };
+  edge(KNIT_TOP);
+  for (let i = 1; i <= length; i++) {
+    const y = KNIT_TOP + i;
+    if (y >= MAX_ROW) break;
+    for (let x = KNIT_LEFT; x <= KNIT_RIGHT; x++) {
+      const edgeCol = x === KNIT_LEFT || x === KNIT_RIGHT;
+      put(buf, x, y, edgeCol ? 'k' : (((x + i) % 2) ? 'd' : 'y'));
+    }
+  }
+  if (flash && KNIT_TOP + 1 < MAX_ROW) {
+    for (let x = KNIT_LEFT + 1; x < KNIT_RIGHT; x++) put(buf, x, KNIT_TOP + 1, 'F');
+  }
+  edge(Math.min(KNIT_TOP + length + 1, MAX_ROW));
+  return padR(buf);
+}
 /* ── 완성품: 비니 ─────────────────────────────────────────── */
 /* 코바늘 작품은 긴 목도리보다 모자가 어울려서(사용자 요청) 단수달의
    목도리 대신 비니를 씁니다. 실 팔레트(k 테두리 / y·d 줄무늬)와
@@ -149,18 +220,21 @@ function beanieRow(buf, y, left, right, stripe, edge = false) {
   }
 }
 
-/* 들어 보이는(자랑하기·완성) 비니. 위로 갈수록 좁아지는 돔에 아래
-   두 줄은 접단입니다. engine.js 가 top 부터 FINISHED_PIECE_SPAN+1
-   줄을 잘라 쓰므로 그 높이(7줄) 안에 들어가야 합니다. */
+/* 들어 보이는(자랑하기·완성) 비니. 처음엔 7줄짜리 사다리꼴이라
+   모자보다 상자에 가까웠습니다 — 한 줄 낮추고, 꼭대기에서 폭이
+   확 벌어졌다가(+4) 완만해지게(+2, +2) 해서 둥근 돔으로 만듭니다.
+   아래 세 줄은 접단입니다. engine.js 가 top 부터
+   FINISHED_PIECE_SPAN+1 줄을 잘라 쓰므로, 아래 FINISHED_PIECE_SPAN
+   도 이 높이(6줄)에 맞춰 다시 내줍니다. */
 export function finishedPiece(top = 20) {
   const buf = buffer();
-  const spans = [[12, 19], [11, 20], [10, 21], [9, 22], [9, 22], [9, 22], [9, 22]];
+  const spans = [[13, 19], [11, 21], [10, 22], [10, 22], [9, 23], [9, 23]];
   spans.forEach(([left, right], i) => {
     const y = top + i;
     // 맨 위(꼭대기)와 접단 경계만 통짜 테두리로 막습니다.
-    beanieRow(buf, y, left, right, (i % 2) ? 'y' : 'd', i === 0 || i === 5);
+    beanieRow(buf, y, left, right, (i % 2) ? 'y' : 'd', i === 0 || i === 4);
   });
-  return shift(pad(buf));
+  return shift(pad(buf, SIZE, WIDTH));
 }
 
 /* 머리에 쓴 비니. 줄 범위(WORN_SPAN)와 각 줄 너비는 이 팩의 머리
@@ -169,28 +243,39 @@ export function finishedPiece(top = 20) {
    삐져나옵니다. 귀는 머리보다 먼저(뒤에) 그려지므로 모자 위로
    그대로 솟아 있습니다. */
 const BEANIE_SPANS = [
-  [9, 11, 20],  // 머리 꼭대기(y10) 바로 위 — 모자 천의 두께
-  [10, 10, 21],
-  [11, 9, 22],
-  [12, 8, 23],
-  [13, 7, 24],
-  [14, 6, 25],
-  [15, 6, 25],
-  [16, 5, 26], // 접단 경계
-  [17, 5, 26]  // 접단 — 바로 아래(y18)가 눈이라 여기서 멈춥니다
+  [9, 11, 21],  // 머리 꼭대기(y10) 바로 위 — 모자 천의 두께
+  [10, 10, 22],
+  [11, 9, 23],
+  [12, 8, 24],
+  [13, 7, 25],
+  [14, 6, 26],
+  [15, 6, 26],
+  [16, 5, 27], // 접단 경계
+  [17, 5, 27]  // 접단 — 바로 아래(y18)가 눈이라 여기서 멈춥니다
 ];
 export const WORN_SPAN = [9, 17];
+
+// 비니는 6줄이라 단수달 목도리(8줄)보다 얕습니다. engine.js 가
+// top + SPAN + 1 까지 잘라 줄무늬를 입히므로 그 높이에 맞춥니다.
+export const FINISHED_PIECE_SPAN = 4;
+
+// 자랑하기·입어보기 전환에서 완성품을 잡는 자리. 목도리(단수달)는
+// 넓어서 몸통 밖까지 벌려야 양 끝을 잡지만, 비니는 좁아서 그만큼
+// 벌리면 모자가 두 손 사이에 붕 뜹니다 — 모자 양옆에 딱 붙입니다.
+// dy 는 모자를 챙 쪽에서 잡게 두 줄 내린 값입니다. 꼭대기를 잡으면
+// 손과 팔이 둥근 머리 부분을 덮어 모자가 사다리꼴로 보입니다.
+export const SPREAD_PAWS = { lx: 6, rx: 22, dy: 3 };
 
 export function wornScarf() {
   const buf = buffer();
   BEANIE_SPANS.forEach(([y, left, right], i) => {
     beanieRow(buf, y, left, right, (i % 2) ? 'y' : 'd', y === 9 || y === 16);
   });
-  return pad(buf, HEIGHT);
+  return padR(buf);
 }
-export function sparkles(frame) { return shift(otterSparkles(frame)); }
-export function sparkleBurst() { return shift(otterSparkleBurst()); }
-export function hearts(frame) { return shift(otterHearts(frame)); }
+export function sparkles(frame) { return adapt(otterSparkles(frame)); }
+export function sparkleBurst() { return adapt(otterSparkleBurst()); }
+export function hearts(frame) { return adapt(otterHearts(frame)); }
 
 /**
  * heldBall() 은 스프라이트 하나와 좌표 여러 개(leftPaw/bottom/arc)를
@@ -201,7 +286,7 @@ export function hearts(frame) { return shift(otterHearts(frame)); }
  */
 export function heldBall(amount) {
   const h = otterHeldBall(amount);
-  return { ...h, sprite: shift(h.sprite) };
+  return { ...h, sprite: adapt(h.sprite) };
 }
 
 // 좌표만 있는(직접 그리지 않는) 값들은 단수달 좌표계 그대로
@@ -209,7 +294,7 @@ export function heldBall(amount) {
 // 그 함수가 결과 스프라이트를 알아서 밀어줍니다.
 export {
   SHOULDER_L, SHOULDER_R, LEFT_PIVOT, RIGHT_PIVOT, yanks,
-  floorBallAnchor, MAX_KNIT, MAX_PILE, FINISHED_PIECE_SPAN, ballTier,
+  floorBallAnchor, MAX_KNIT, MAX_PILE, ballTier,
   paletteFor, SPARK
 };
 
@@ -298,8 +383,12 @@ function mergeInto(target, source) {
 // 타원 판정이 픽셀 중심(x+0.5)을 쓰므로, 좌우가 정확히 맞보이려면 두
 // 밑동의 합이 캔버스 폭(32)이어야 합니다 — 13.5/17.5(합 31)로 뒀을 때
 // 귀 한 쌍이 통째로 반 칸 왼쪽에 놓여 머리와 어긋나 있었습니다.
+// 합이 33 이어야 좌우가 맞고(x+0.5 로 재는 값의 대칭 조건), 둘 다
+// .5 여야 타원이 홀수 폭으로 떨어져 안쪽 윤곽이 깨지지 않습니다 —
+// 정수(14/19)로 두면 두 귀가 가운데 열에서 맞물려 테두리가 서로를
+// 파먹습니다.
 const EAR_BASE_L_X = 13.5;
-const EAR_BASE_R_X = 18.5;
+const EAR_BASE_R_X = 19.5;
 const EAR_BASE_Y = 11; // 밀린 머리 꼭대기(y10) 바로 아래, 아직 넓은 자리
 const EAR_LENGTH = 10;
 const EAR_TILT_DEG = 15; // 수직 기준 기울기(=수평 기준 75도)
@@ -389,7 +478,7 @@ const earHalfFold = earShape([
   { length: 4.5, halfWidth: 2.3, angle: 50, inner: false }
 ]);
 
-const earPair = (left, right) => pad((() => {
+const earPair = (left, right) => padR((() => {
   const buf = buffer();
   mergeInto(buf, left(EAR_BASE_L_X, -1));
   mergeInto(buf, right(EAR_BASE_R_X, 1));
@@ -413,14 +502,17 @@ export const ears = {
    보입니다 — 단수달 꼬리와 같은 가림 기법입니다. y 좌표는 이 팩의
    SHIFT 만큼 이미 밀려 있는 다른 스프라이트들과 맞춥니다. */
 
-const FEET_Y = 29 + SHIFT;
+// 완성품을 입은 상태는 꼬리(= 발)를 위아래로 흔드는데, 예전 자리
+// (29+SHIFT)에서는 내려간 프레임의 아래 테두리가 캔버스 밖으로 나가
+// 발 윤곽이 끊겨 보였습니다 — 한 칸 올려 흔들어도 다 들어오게 합니다.
+const FEET_Y = 28 + SHIFT;
 
 // 처음엔 몸통 양 끝(7/24)에 붙여 벌려놨는데, 발이 바깥으로 벌어질수록
 // 다부져 보여서 "조금 더 가운데로 몰면 귀엽겠다"는 요청대로 안쪽으로
 // 2px 씩 당겼습니다 — 몸통에 덜 묻히면서 두 발 사이가 좁아집니다.
 // 귀와 같은 이유로 두 발의 합도 32 여야 좌우가 맞습니다.
 const FOOT_L_X = 8;
-const FOOT_R_X = 24;
+const FOOT_R_X = 25;
 // 안쪽으로 당긴 만큼 몸통에 더 묻혀서, 삐져나오는 부분이 예전만큼
 // 보이도록 발 자체를 키웠습니다.
 const FOOT_RX = 3.7;
@@ -433,7 +525,7 @@ export function tail(offset = 0) {
     ellipse(buf, x, y, FOOT_RX, FOOT_RY, 'o');
     ellipse(buf, x, y, FOOT_RX - 0.9, FOOT_RY - 0.8, 'l');
   });
-  return pad(buf, HEIGHT);
+  return padR(buf);
 }
 
 /* ── 코바늘 ───────────────────────────────────────────────── */
@@ -453,8 +545,8 @@ export function tail(offset = 0) {
 // 편물보다 앞에 그려달라는 표시입니다(위 설명 참조).
 export const NEEDLE_OVER_KNIT = true;
 
-const HOOK_TIP = [17, 22 + SHIFT];  // 편물 윗단에 얹힌 갈고리 끝
-const HOOK_BUTT = [24, 24 + SHIFT]; // 오른손 아래로 빠져나온 손잡이 끝
+const HOOK_TIP = [18, 22 + SHIFT];  // 편물 윗단에 얹힌 갈고리 끝
+const HOOK_BUTT = [25, 24 + SHIFT]; // 오른손 아래로 빠져나온 손잡이 끝
 
 // 프레임마다 끝점만 따로 찍으면 길이·각도가 같이 변해 "회전축이
 // 이상해" 보입니다. 갈고리와 손잡이를 같은 값만큼 통째로 옮겨서
@@ -484,10 +576,10 @@ export function needles(frame, pullOut = 0) {
   const buf = buffer();
   // pullOut===2(완전히 뺌)일 땐 여기 안 그립니다 — earNeedle() 이
   // 바닥에 내려둔 모습으로 대신 그립니다.
-  if (pullOut >= 2) return pad(buf, HEIGHT);
+  if (pullOut >= 2) return padR(buf);
   const [jx, jy] = handJab(frame);
   drawHook(buf, [HOOK_TIP[0] + jx, HOOK_TIP[1] + jy], [HOOK_BUTT[0] + jx, HOOK_BUTT[1] + jy]);
-  return pad(buf, HEIGHT);
+  return padR(buf);
 }
 
 /**
@@ -516,14 +608,14 @@ export function handJab(frame) {
  */
 export function asideNeedle() {
   const buf = buffer();
-  const tip = [22, 38];
-  const butt = [30, 37];
+  const tip = [23, 38];
+  const butt = [31, 37];
   line(buf, tip[0], tip[1] + 1, butt[0], butt[1] + 1, 'g');
   line(buf, tip[0], tip[1] - 1, butt[0], butt[1] - 1, 'g');
   line(buf, tip[0], tip[1], butt[0], butt[1], 'n');
   put(buf, tip[0] - 1, tip[1], 'n');     // 갈고리 목
   put(buf, tip[0] - 1, tip[1] - 1, 'g'); // 위로 꺾인 갈고리 끝
-  return pad(buf, HEIGHT);
+  return padR(buf);
 }
 
 export const earNeedle = asideNeedle;

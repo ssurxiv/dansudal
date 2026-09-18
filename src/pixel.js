@@ -13,12 +13,19 @@
 export const SIZE = 32;
 const EMPTY_ROW = '.'.repeat(SIZE);
 
-/** 듬성듬성 정의한 행 객체를 height 행짜리(기본 32) 스프라이트로 채웁니다. */
+/**
+ * 듬성듬성 정의한 행 객체를 height 행짜리(기본 32) 스프라이트로 채웁니다.
+ * 각 행은 정확히 width 글자로 맞춥니다 — put() 이 쓰인 자리까지만 행을
+ * 늘려두므로(아래 참조) 길이가 들쭉날쭉한 채로 나올 수 있는데,
+ * blit/sliceRows/shiftRows 가 행 길이를 그대로 믿기 때문입니다.
+ */
 export function pad(rows, height = SIZE, width = SIZE) {
   const emptyRow = width === SIZE ? EMPTY_ROW : '.'.repeat(width);
   const out = [];
   for (let y = 0; y < height; y++) {
-    out.push(rows[y] !== undefined ? rows[y] : emptyRow);
+    const row = rows[y];
+    if (row === undefined) out.push(emptyRow);
+    else out.push(row.length === width ? row : row.slice(0, width).padEnd(width, '.'));
   }
   return out;
 }
@@ -28,14 +35,15 @@ export function buffer() {
   return {};
 }
 
-// 가로(x)는 지금 모든 컨셉이 32 로 같아서 그대로 고정폭으로 막고,
-// 세로(y)는 pad() 의 height 인자가 최종 크기를 정하므로 여기서는
-// 음수만 막습니다 — 더 큰 y 에 써도 pad() 가 요청한 높이 밖이면
-// 그냥 잘려서 나갑니다(에러 없이 조용히 버려짐).
+// 음수만 막고, 최종 크기는 pad() 의 height/width 가 정합니다 — 범위를
+// 넘겨 써도 pad() 가 잘라내므로 조용히 버려집니다. 예전에는 가로를
+// 32 로 못박았는데, 코토키가 좌우 대칭축을 열과 열 사이가 아니라
+// 가운데 열 위에 두려고 33 열을 쓰면서 풀었습니다.
 export function put(buf, x, y, ch) {
-  if (x < 0 || x >= SIZE || y < 0) return;
-  if (!buf[y]) buf[y] = EMPTY_ROW;
-  buf[y] = buf[y].substring(0, x) + ch + buf[y].substring(x + 1);
+  if (x < 0 || y < 0) return;
+  const row = buf[y] ?? EMPTY_ROW;
+  const padded = row.length > x ? row : row.padEnd(x + 1, '.');
+  buf[y] = padded.substring(0, x) + ch + padded.substring(x + 1);
 }
 
 /** 브레젠험 직선. 바늘과 실 가닥처럼 각도가 변하는 요소에 씁니다. */

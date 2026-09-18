@@ -14,11 +14,16 @@ import { STATES, ENTRY } from './states.js';
  * 손이 몸에 붙어 보입니다 — 팔 없이 paws() 만 찍으면 손이 따로 뜹니다.
  */
 function spreadHold(c, top) {
-  const lx = 4, rx = 24;
+  // 완성품을 어디로 잡느냐는 물건마다 다릅니다 — 목도리는 넓게 펼쳐
+  // 위쪽 양 끝을 잡지만(dy 0), 모자는 좁아서 그만큼 벌리면 두 손
+  // 사이에 붕 뜨고, 꼭대기를 잡으면 손이 둥근 머리 부분을 가려
+  // 사다리꼴처럼 보입니다. 팩이 자기 물건에 맞는 폭과 높이를 줍니다.
+  const { lx, rx, dy = 0 } = c.S.SPREAD_PAWS ?? { lx: 4, rx: 24 };
+  const y = top + dy;
   return [
-    [c.S.arm(c.S.SHOULDER_L[0], c.S.SHOULDER_L[1], lx + 3, top + 1), c.S.BODY],
-    [c.S.arm(c.S.SHOULDER_R[0], c.S.SHOULDER_R[1], rx, top + 1), c.S.BODY],
-    [c.S.paws(lx, top, rx, top), c.S.BODY]
+    [c.S.arm(c.S.SHOULDER_L[0], c.S.SHOULDER_L[1], lx + 3, y + 1), c.S.BODY],
+    [c.S.arm(c.S.SHOULDER_R[0], c.S.SHOULDER_R[1], rx, y + 1), c.S.BODY],
+    [c.S.paws(lx, y, rx, y), c.S.BODY]
   ];
 }
 

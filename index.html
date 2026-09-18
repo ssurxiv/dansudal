@@ -139,6 +139,9 @@
      이 서브트리에서만 값을 가집니다 — 지금은 확대/축소 버튼이 없어
      항상 1이지만, 나중에 붙이면 이 선언 하나로 서로 안 섞입니다. */
   #panel-rabbit { --zoom: 1; }
+  /* 코토키 캔버스는 33열이라 32열 기준 너비(224px = 32×7)로 늘리면
+     한 칸이 6.79px 이 되어 픽셀이 뭉개집니다 — 33×7 로 맞춥니다. */
+  #panel-rabbit .pixel-stage { width: min(calc(231px * var(--zoom)), 100%); }
 
   .page-head {
     display: flex;
@@ -637,7 +640,9 @@
 
   <div class="stage-wrap">
     <div class="speech-bubble kind-chat" id="r-bubble">대기 중</div>
-    <canvas id="r-stage" class="pixel-stage" width="32" height="40"
+    <!-- 코토키는 가운데 열 위에 좌우 대칭축을 두려고 33열을 씁니다
+         (rabbit/sprites.js 의 WIDTH 참조). -->
+    <canvas id="r-stage" class="pixel-stage" width="33" height="40"
             aria-label="코바늘 뜨는 토끼 캐릭터"></canvas>
     <p id="r-status" class="sr-only" aria-live="polite">대기 중</p>
   </div>
