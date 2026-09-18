@@ -133,9 +133,13 @@ function pieceLayers(c, top) {
   return stripedRows(c, c.S.finishedPiece(top), from, from + c.S.FINISHED_PIECE_SPAN + 1);
 }
 
+/* 착용한 완성품이 차지하는 줄 범위는 컨셉마다 다릅니다 — 단수달은
+   목에 두른 목도리, 코토키는 머리에 쓴 비니라 아예 다른 높이입니다.
+   팩이 자기 범위를 알려주고(WORN_SPAN, 그 팩의 최종 좌표 기준),
+   안 알려주면 단수달의 목도리 자리를 씁니다. */
 function scarfLayers(c) {
-  const shift = c.S.SHIFT ?? 0;
-  return stripedRows(c, c.S.wornScarf(), 19 + shift, 28 + shift);
+  const [from, to] = c.S.WORN_SPAN ?? [19, 28];
+  return stripedRows(c, c.S.wornScarf(), from, to);
 }
 
 /**
@@ -349,6 +353,10 @@ const CONDITIONS = {
 
 const FINISHED_STATES = new Set(['complete', 'showoff', 'wrapping', 'wearing']);
 
+// 다음 조작을 받아도 되는 상태들 — 나머지는 재생 중인 동작이라
+// 끝날 때까지 기다려야 합니다(snapshot().busy → 버튼 잠금).
+const RESTING_STATES = new Set(['idle', 'showoff', 'wearing']);
+
 // 풀기(dropRow)는 애니메이션의 특정 프레임(rip 의 f3)에서만 실제로
 // 실행됩니다. ripRow() 를 애니메이션 도중 다시 부르면 enter() 가
 // 진행 중이던 상태를 처음부터 재시작시켜 그 dropRow 가 아예 씹힙니다
@@ -503,7 +511,10 @@ export class Companion {
       notes: this.notes,
       percent: Math.min(100, Math.round((this.rows / this.target) * 100)),
       finished: this.rows >= this.target,
-      wearing: this.state === 'wearing' || this.state === 'wrapping'
+      wearing: this.state === 'wearing' || this.state === 'wrapping',
+      // 재생 중인 동작이 있는지. enter() 가 상태를 바꿀 때마다 emit()
+      // 하므로 화면은 이 값만 보고 버튼을 잠갔다 풀면 됩니다.
+      busy: !RESTING_STATES.has(this.state)
     };
   }
 

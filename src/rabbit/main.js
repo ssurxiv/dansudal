@@ -21,6 +21,8 @@ mountCompanionApp({
   zoomTarget: document.getElementById('panel-rabbit'),
   sprites: R,
   cellKit: carrotCell,
+  wearIcon: '🧢', // 코토키의 완성품은 목도리가 아니라 비니입니다
+
   bannerText: '코토키 — © 2026 @tteoboja_0\n무단 재배포를 금합니다. LICENSE.txt 참조.',
   bannerColor: '#d97b8d'
 });

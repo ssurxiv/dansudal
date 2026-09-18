@@ -27,8 +27,7 @@
     /* 컨셉 탭 전용 고정색 — data-concept 로 전환되는 위 변수들과
        달리 항상 각자 브랜드 색 그대로입니다(요청: "코토키 페이지에서
        단수달 탭은 갈색으로, 단수달 페이지에서 코토키 탭은 분홍으로,
-       원래 각자 색으로"). 탭 바 밑줄도 어느 탭이 활성이든 안 흔들리게
-       고정된 중립색을 씁니다. */
+       원래 각자 색으로"). */
     --otter-ink: #3b2a1c;
     --otter-muted: #8a7561;
     --otter-paper: #fbf6ee;
@@ -39,6 +38,9 @@
     --rabbit-paper: #fdf7f6;
     --rabbit-card: #f6e8e6;
     --rabbit-line: #ecd8d5;
+    /* 탭 바 밑줄은 어느 탭이 활성이냐가 아니라 "지금 보고 있는 페이지"
+       를 따라갑니다 — 단수달의 따뜻한 회갈색 줄을 코토키 분홍 화면에
+       그대로 쓰면 그 줄만 누렇게 떠 보였습니다. */
     --tabs-line: #e3d6d2;
   }
   /* 코토키(코바늘+토끼) 컨셉 — 따뜻한 갈색 톤(단수달) 대신 훨씬
@@ -53,6 +55,7 @@
     --line: var(--rabbit-line);
     --yarn: #b5707e;
     --stage-bg: #fffcfb;
+    --tabs-line: #e8d3ce;
   }
   * { box-sizing: border-box; }
   body {
@@ -334,6 +337,17 @@
   }
   button:hover { background: var(--card); }
   button:active { transform: translateY(1px); }
+  /* 캐릭터가 한 동작을 하는 동안에는 다른 동작 버튼을 잠급니다 —
+     동작이 겹치면 애니메이션이 서로를 끊어먹습니다(companion-app.js
+     의 snapshot.busy). 눌리지 않는다는 걸 눈으로도 알 수 있게
+     연하게 + 커서까지 바꿉니다. */
+  button:disabled {
+    opacity: 0.45;
+    cursor: default;
+    transform: none;
+  }
+  button:disabled:hover { background: #fff; }
+  #add:disabled:hover { background: #e3f2ec; }
   button:focus-visible { outline: 2px solid var(--yarn); outline-offset: 2px; }
   /* 기본 액션(한 단 뜨기) — 진한 색 배경 + 흰 글씨는 대비는 나쁘지
      않지만 카드 위주의 파스텔 톤 화면에서 혼자 튀어 보였습니다.

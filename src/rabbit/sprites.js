@@ -77,19 +77,53 @@ export const body = shift(otterBody);
 // 칸이면 한쪽으로 반 칸 치우쳐 대칭이 깨집니다.
 // 아래 세 줄(16~18)은 x11~20, 위 두 줄은 x12~19 / x13~18 로 좁힙니다.
 // 머리 외곽선과 볼터치(fff)는 단수달 것을 그대로 둡니다.
+// 입은 단수달처럼 가로줄(-) 하나만 두면 밋밋해서 ㅗ 모양으로 세웁니다
+// ("약간 발랄한 토끼 느낌"). 처음엔 코 바로 밑(y15)에 인중을 붙였다가
+// 코와 한 덩어리로 뭉쳤습니다 — 좌우 대칭축이 열과 열 사이(x15.5)라
+// 가운데 세로선은 아무리 얇아도 2px 이고, 그게 2px 짜리 코 바로 밑에
+// 붙으면 2×2 블록이 되기 때문입니다. 그래서 코와 입 사이를 한 줄
+// 비우고(y15), 입을 인중(y16) + 그보다 넉넉히 넓은 가로바(y17)로
+// 따로 세워 ㅗ 로 읽히게 했습니다.
 const MUZZLE_ROWS = {
   14: '....offfbbbbbllmmllbbbbbfffo....',
   15: '....offfbbbbllllllllbbbbfffo....',
-  16: '.....offbbblllmmmmlllbbbffo.....',
-  17: '......obbbbllllllllllbbbbo......'
+  16: '.....offbbbllllmmllllbbbffo.....',
+  17: '......obbbbllmmmmmmllbbbbo......'
 };
 
 export const head = shift(otterHead.map((row, y) => MUZZLE_ROWS[y] ?? row));
 export const bang = shift(otterBang);
+
+/* 표정은 대부분 단수달 것을 그대로 쓰지만 두 개만 토끼용으로 다시
+   그립니다.
+
+   annoyed(한 단 풀기) — 반쯤 내린 눈꺼풀이 외곽선 색(o, 갈색기 도는
+   어두운 색)이라 분홍 얼굴 위에서 저 혼자 칙칙했습니다. 털·볼터치와
+   같은 계열의 자주(v)로 바꿉니다. 단수달이 같이 바꾸는 입은 건드리지
+   않습니다 — 토끼 입은 인중까지 있는 ㅗ 모양이라, 가운데만 남기고
+   오므리면 인중과 붙어 세로 막대처럼 뭉칩니다. 어차피 이 캐릭터는
+   입보다 눈·귀로 표현합니다(README 원칙).
+
+   proud(입어보기) — 뒤집힌 U 대신 ><. 양 눈이 서로 마주 보게 꺾여
+   더 토끼답고 신나 보입니다. */
+const RABBIT_FACES = {
+  annoyed: [pad({
+    10: '.........bbb........bbb.........',
+    11: '.........vvv........vvv.........'
+  })],
+  proud: [pad({
+    10: '.........bbb........bbb.........',
+    11: '.........eeb........bee.........',
+    12: '.........bbe........ebb.........',
+    13: '.........eeb........bee.........'
+  })]
+};
+
 export const faces = Object.fromEntries(
   Object.entries(otterFaces).map(([key, layers]) => [
     key,
-    layers === null ? null : layers.map(shift)
+    // RABBIT_FACES 도 단수달 좌표로 그렸으니 똑같이 밀어서 씁니다.
+    (RABBIT_FACES[key] ?? layers)?.map(shift) ?? null
   ])
 );
 
@@ -102,8 +136,58 @@ export function feedStrand(knitLength, ballAmount) { return shift(otterFeedStran
 export function windStrand(ballAmount) { return shift(otterWindStrand(ballAmount)); }
 export function pulledYarn(rx, ry) { return shift(otterPulledYarn(rx, ry)); }
 export function pile(amount) { return shift(otterPile(amount)); }
-export function finishedPiece(top) { return shift(otterFinishedPiece(top)); }
-export function wornScarf() { return shift(otterWornScarf()); }
+/* ── 완성품: 비니 ─────────────────────────────────────────── */
+/* 코바늘 작품은 긴 목도리보다 모자가 어울려서(사용자 요청) 단수달의
+   목도리 대신 비니를 씁니다. 실 팔레트(k 테두리 / y·d 줄무늬)와
+   finishedPiece(top)·wornScarf() 계약은 그대로 지키므로, 실 교체
+   이력이 줄무늬로 남는 것도 목도리와 똑같이 동작합니다. */
+
+/** 한 줄을 테두리(k) + 줄무늬로 채웁니다. edge 면 줄 전체가 테두리. */
+function beanieRow(buf, y, left, right, stripe, edge = false) {
+  for (let x = left; x <= right; x++) {
+    put(buf, x, y, (edge || x === left || x === right) ? 'k' : stripe);
+  }
+}
+
+/* 들어 보이는(자랑하기·완성) 비니. 위로 갈수록 좁아지는 돔에 아래
+   두 줄은 접단입니다. engine.js 가 top 부터 FINISHED_PIECE_SPAN+1
+   줄을 잘라 쓰므로 그 높이(7줄) 안에 들어가야 합니다. */
+export function finishedPiece(top = 20) {
+  const buf = buffer();
+  const spans = [[12, 19], [11, 20], [10, 21], [9, 22], [9, 22], [9, 22], [9, 22]];
+  spans.forEach(([left, right], i) => {
+    const y = top + i;
+    // 맨 위(꼭대기)와 접단 경계만 통짜 테두리로 막습니다.
+    beanieRow(buf, y, left, right, (i % 2) ? 'y' : 'd', i === 0 || i === 5);
+  });
+  return shift(pad(buf));
+}
+
+/* 머리에 쓴 비니. 줄 범위(WORN_SPAN)와 각 줄 너비는 이 팩의 머리
+   실루엣(밀린 뒤 y10~17)에 딱 맞춰서, 모자가 머리 윤곽을 그대로
+   덮도록 했습니다 — 한 줄이라도 좁으면 머리 외곽선이 모자 밖으로
+   삐져나옵니다. 귀는 머리보다 먼저(뒤에) 그려지므로 모자 위로
+   그대로 솟아 있습니다. */
+const BEANIE_SPANS = [
+  [9, 11, 20],  // 머리 꼭대기(y10) 바로 위 — 모자 천의 두께
+  [10, 10, 21],
+  [11, 9, 22],
+  [12, 8, 23],
+  [13, 7, 24],
+  [14, 6, 25],
+  [15, 6, 25],
+  [16, 5, 26], // 접단 경계
+  [17, 5, 26]  // 접단 — 바로 아래(y18)가 눈이라 여기서 멈춥니다
+];
+export const WORN_SPAN = [9, 17];
+
+export function wornScarf() {
+  const buf = buffer();
+  BEANIE_SPANS.forEach(([y, left, right], i) => {
+    beanieRow(buf, y, left, right, (i % 2) ? 'y' : 'd', y === 9 || y === 16);
+  });
+  return pad(buf, HEIGHT);
+}
 export function sparkles(frame) { return shift(otterSparkles(frame)); }
 export function sparkleBurst() { return shift(otterSparkleBurst()); }
 export function hearts(frame) { return shift(otterHearts(frame)); }
@@ -162,7 +246,10 @@ export const BODY = {
   // 털보다 뚜렷이 더 진하고 붉은 톤으로 바꿔 확실히 구분되게 합니다.
   f: '#d9637e', // 볼터치·귀 안쪽 포인트
   m: '#a85a6a', // 코·입
-  p: '#fdf1f2'  // 앞발
+  p: '#fdf1f2', // 앞발
+  // 반쯤 감은 눈꺼풀(annoyed). 외곽선(o)을 쓰면 갈색기가 돌아 분홍
+  // 얼굴에서 저 혼자 칙칙해 보여서, 볼터치와 같은 계열의 자주입니다.
+  v: '#9c4f66'
 };
 
 // engine.js 가 S.NEEDLE 로 직접 참조하므로 이름은 그대로 두고

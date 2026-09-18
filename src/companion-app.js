@@ -29,11 +29,14 @@ const GRID_CELL = 24;
  * @param {object} cfg.sprites        engine.js Companion 에 주입할 스프라이트 팩
  * @param {{create():SVGElement, setShape(el:SVGElement, shape:string):void}} cfg.cellKit
  *   진행 그리드 칸 하나를 그리는 방법(물고기/당근). 칸 배치·채움 로직은 공용입니다.
+ * @param {string} [cfg.wearIcon]     입어보기/벗기 버튼 아이콘. 완성품이
+ *   컨셉마다 달라서(단수달 목도리, 코토키 비니) 기본은 목도리입니다.
  * @param {string} cfg.bannerText     콘솔 배너 문구
  * @param {string} cfg.bannerColor    콘솔 배너 색
  */
 export function mountCompanionApp(cfg) {
   const { panelId, prefix, unit, storageKey, zoomStorageKey, zoomTarget, sprites, cellKit } = cfg;
+  const wearIcon = cfg.wearIcon ?? '🧣';
 
   console.info(
     `%c${cfg.bannerText}`,
@@ -145,8 +148,14 @@ export function mountCompanionApp(cfg) {
       renderRowGrid(s.rows, s.target);
       noteToInput.placeholder = `끝 ${unit}(기본 ${s.target})`;
       wearBtn.hidden = !s.finished;
-      wearBtn.textContent = s.wearing ? '🧣 벗기' : '🧣 입어보기';
+      wearBtn.textContent = `${wearIcon} ${s.wearing ? '벗기' : '입어보기'}`;
       addBtn.hidden = ripBtn.hidden = windBtn.hidden = swapBtn.hidden = notesToggleBtn.hidden = s.finished;
+      // 동작이 재생되는 동안에는 다른 동작을 못 시작하게 잠급니다 —
+      // 겹쳐 부르면 enter() 가 진행 중이던 애니메이션을 처음부터
+      // 되돌려서, 뜨는 시늉만 하고 실제로는 씹히는 조작이 생깁니다.
+      [addBtn, ripBtn, windBtn, swapBtn, wearBtn, resetBtn].forEach((btn) => {
+        btn.disabled = s.busy;
+      });
       if (s.finished) {
         stashPanel.hidden = true;
         notesPanel.hidden = true;
