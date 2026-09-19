@@ -314,11 +314,39 @@
     font-weight: 600;
     text-align: center;
   }
-  /* .zoom-controls button 과 같은 30×30 정사각형 스타일 재사용. */
+  /* 잠겨 있는 동안에는 입력칸처럼 보이지 않게 — 눌러도 안 바뀌는데
+     테두리만 있으면 고장난 것처럼 보입니다. */
+  .stat dd input[readonly] {
+    border-color: transparent;
+    background: transparent;
+    cursor: default;
+  }
+  /* 뜬 단수와 총 단수를 같은 폭의 칸에 넣습니다. 한쪽만 입력칸이면
+     그 칸의 남는 폭만큼 슬래시 한쪽 간격만 벌어져 보입니다 — 글자
+     폭대로 줄어드는 span 과 고정폭 input 을 나란히 두면 생기는 차이라,
+     둘 다 세 자리(999) 기준 같은 칸으로 맞췄습니다. 덤으로 입력칸이
+     숫자보다 지나치게 넓어 수정 버튼과 벌어져 보이던 것도 없어집니다.
+     input 쪽 선택자는 위 input[type="number"] 규칙과 명시도가 같아야
+     (그래서 뒤에 와야) 폭이 덮어씌워집니다. */
+  .stat dd .stat-num,
+  .stat dd input.stat-num {
+    flex: none;
+    width: 2.1em;
+    padding: 2px 1px;
+    text-align: center;
+  }
+  .stat dd input.stat-num::-webkit-inner-spin-button,
+  .stat dd input.stat-num::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 0;
+  }
+  /* .zoom-controls button 과 같은 정사각형 스타일 재사용. 수정 버튼이
+     늘면서 한 줄에 버튼 셋 + 숫자 둘이 들어가야 해 26px 에서 줄였습니다. */
   .stat dd button {
     flex: none;
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
     min-width: 0;
     padding: 0;
     font-size: 15px;
@@ -516,6 +544,13 @@
   @media (prefers-reduced-motion: reduce) {
     .fill { transition: none; }
   }
+  /* 좁은 화면에서는 통계를 한 줄에 하나씩. "쓴 볼 수 / 보유 볼 수" 는
+     버튼 셋 + 숫자 둘 + 슬래시가 한 줄에 들어가야 해서, 카드를 둘로
+     쪼개면 대략 445px 아래부터 폭이 모자랍니다(본문이 420px 로 고정
+     되는 지점까지 여유를 둬 480px 로 잡았습니다). */
+  @media (max-width: 480px) {
+    .stats { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
@@ -567,18 +602,23 @@
     <div class="stat">
       <dt>뜬 단수/총 단수</dt>
       <dd>
-        <span id="rows">0</span> /
-        <input type="number" id="target" value="20" min="1" max="999" required />
+        <span id="rows" class="stat-num">0</span> /
+        <!-- 목표 단수는 잘못 건드리면 진행 표시가 통째로 흔들리는 값이라
+             평소엔 잠가두고, 옆 버튼을 눌러야 고칠 수 있습니다. -->
+        <input type="number" id="target" class="stat-num" value="20" min="1" max="999" required readonly />
+        <button id="targetEdit" type="button" aria-label="총 단수 수정">✎</button>
       </dd>
     </div>
     <div class="stat">
       <dt>쓴 볼 수/보유 볼 수</dt>
       <dd>
         <button id="ballMinus" type="button" aria-label="쓴 볼 수 줄이기">−</button>
-        <span id="usedBall">0</span>
+        <span id="usedBall" class="stat-num">0</span>
         <button id="ballPlus" type="button" aria-label="쓴 볼 수 늘리기">+</button>
         /
-        <input type="number" id="totalBall" min="0" max="999" placeholder="-" />
+        <!-- 보유 볼 수도 총 단수와 같이 평소엔 잠가둡니다. -->
+        <input type="number" id="totalBall" class="stat-num" min="0" max="999" placeholder="-" readonly />
+        <button id="totalBallEdit" type="button" aria-label="보유 볼 수 수정">✎</button>
       </dd>
     </div>
   </dl>
@@ -660,18 +700,21 @@
     <div class="stat">
       <dt>뜬 단수/총 단수</dt>
       <dd>
-        <span id="r-rows">0</span> /
-        <input type="number" id="r-target" value="20" min="1" max="999" required />
+        <span id="r-rows" class="stat-num">0</span> /
+        <input type="number" id="r-target" class="stat-num" value="20" min="1" max="999" required readonly />
+        <button id="r-targetEdit" type="button" aria-label="총 단수 수정">✎</button>
       </dd>
     </div>
     <div class="stat">
       <dt>쓴 볼 수/보유 볼 수</dt>
       <dd>
         <button id="r-ballMinus" type="button" aria-label="쓴 볼 수 줄이기">−</button>
-        <span id="r-usedBall">0</span>
+        <span id="r-usedBall" class="stat-num">0</span>
         <button id="r-ballPlus" type="button" aria-label="쓴 볼 수 늘리기">+</button>
         /
-        <input type="number" id="r-totalBall" min="0" max="999" placeholder="-" />
+        <!-- 보유 볼 수도 총 단수와 같이 평소엔 잠가둡니다. -->
+        <input type="number" id="r-totalBall" class="stat-num" min="0" max="999" placeholder="-" readonly />
+        <button id="r-totalBallEdit" type="button" aria-label="보유 볼 수 수정">✎</button>
       </dd>
     </div>
   </dl>

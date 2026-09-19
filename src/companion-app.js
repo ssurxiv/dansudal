@@ -56,6 +56,9 @@ export function mountCompanionApp(cfg) {
   const ballMinusBtn = $('ballMinus');
   const ballPlusBtn = $('ballPlus');
   const totalBallInput = $('totalBall');
+  const targetInput = $('target');
+  const targetEditBtn = $('targetEdit');
+  const totalBallEditBtn = $('totalBallEdit');
   const notesToggleBtn = $('notesToggle');
   const notesPanel = $('notesPanel');
   const notesList = $('notesList');
@@ -141,6 +144,11 @@ export function mountCompanionApp(cfg) {
       lastSnapshot = s;
       $('rows').textContent = s.rows;
       $('usedBall').textContent = s.usedBall;
+      // 목표 단수는 저장해둔 값을 복원하는데 입력칸은 HTML 기본값
+      // 그대로였습니다 — 글자와 진행 그리드(s.target 으로 그림)가
+      // 서로 다른 수를 가리켰습니다. 고치는 중일 때만 건드리지
+      // 않습니다(볼 수 입력칸과 같은 규칙).
+      if (document.activeElement !== targetInput) targetInput.value = s.target;
       if (document.activeElement !== totalBallInput) {
         totalBallInput.value = s.totalBall ?? '';
       }
@@ -153,7 +161,8 @@ export function mountCompanionApp(cfg) {
       // 동작이 재생되는 동안에는 다른 동작을 못 시작하게 잠급니다 —
       // 겹쳐 부르면 enter() 가 진행 중이던 애니메이션을 처음부터
       // 되돌려서, 뜨는 시늉만 하고 실제로는 씹히는 조작이 생깁니다.
-      [addBtn, ripBtn, windBtn, swapBtn, wearBtn, resetBtn].forEach((btn) => {
+      [addBtn, ripBtn, windBtn, swapBtn, wearBtn, resetBtn,
+        targetEditBtn, totalBallEditBtn].forEach((btn) => {
         btn.disabled = s.busy;
       });
       if (s.finished) {
@@ -180,10 +189,6 @@ export function mountCompanionApp(cfg) {
 
   ballPlusBtn.addEventListener('click', () => companion.setUsedBall(lastSnapshot.usedBall + 1));
   ballMinusBtn.addEventListener('click', () => companion.setUsedBall(lastSnapshot.usedBall - 1));
-  totalBallInput.addEventListener('change', (e) => {
-    const raw = e.target.value.trim();
-    companion.setTotalBall(raw === '' ? null : parseInt(raw, 10));
-  });
 
   /* ── 실 창고 ──────────────────────────────────────────── */
 
@@ -352,12 +357,60 @@ export function mountCompanionApp(cfg) {
     if (companion.state === 'wearing') companion.takeOff();
     else companion.tryOn();
   });
-  $('target').addEventListener('change', (e) => {
-    companion.setTarget(parseInt(e.target.value, 10));
+  /* 잘못 건드리면 표시가 통째로 흔들리는 값(총 단수·보유 볼 수)은
+     평소 잠가둡니다. 옆 연필 버튼을 눌러야 풀리고, 확인(✓)·Enter·
+     다른 곳 클릭 중 아무거나로 적용됩니다(Esc 는 취소).
+     write 가 값을 거르므로, 적용 뒤에는 늘 read() 로 되돌려 화면과
+     모델이 어긋나지 않게 합니다 — 빈 값이나 0 을 넣고 나가도 원래
+     값이 그대로 보입니다. */
+  function lockedNumberField(input, editBtn, label, { read, write }) {
+    function setEditing(on) {
+      input.readOnly = !on;
+      editBtn.textContent = on ? '✓' : '✎';
+      editBtn.setAttribute('aria-label', `${label} 수정${on ? ' 완료' : ''}`);
+      if (on) {
+        input.focus();
+        input.select();
+      }
+    }
+    function commit() {
+      write(input.value.trim());
+      input.value = read();
+      setEditing(false);
+    }
+    // 편집 중에 버튼을 누르면 blur 가 먼저 나가 commit 되고, 이어서
+    // click 이 잠긴 칸을 다시 여는 꼴이 됩니다 — 그 blur 를 막습니다.
+    editBtn.addEventListener('mousedown', (e) => {
+      if (!input.readOnly) e.preventDefault();
+    });
+    editBtn.addEventListener('click', () => {
+      if (input.readOnly) setEditing(true);
+      else commit();
+    });
+    input.addEventListener('blur', () => {
+      if (!input.readOnly) commit();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        commit();
+      } else if (e.key === 'Escape') {
+        input.value = read();
+        setEditing(false);
+      }
+    });
+  }
+
+  lockedNumberField(targetInput, targetEditBtn, '총 단수', {
+    read: () => companion.target,
+    write: (raw) => {
+      const value = parseInt(raw, 10);
+      if (Number.isFinite(value) && value >= 1) companion.setTarget(value);
+    }
   });
-  $('target').addEventListener('blur', (e) => {
-    const value = parseInt(e.target.value, 10);
-    if (!Number.isFinite(value) || value < 1) e.target.value = companion.target;
+  lockedNumberField(totalBallInput, totalBallEditBtn, '보유 볼 수', {
+    read: () => companion.totalBall ?? '',
+    write: (raw) => companion.setTotalBall(raw === '' ? null : parseInt(raw, 10))
   });
   resetBtn.addEventListener('click', () => {
     const prompt = lastSnapshot?.finished
