@@ -127,7 +127,10 @@ export const STATES = {
   showoff: {
     pose: 'showoff',
     ears: 'normal',
-    face: 'neutral',
+    // 완성 연출(complete)에서 초롱초롱해진 눈을 자랑하는 동안에도
+    // 유지합니다 — 1초 남짓 반짝이다 평소 눈으로 돌아오면 완성의
+    // 들뜬 느낌이 거기서 끊깁니다.
+    face: 'starry',
     frames: null,
     frameMs: 220,
     repeatIf: 'always',
@@ -139,7 +142,7 @@ export const STATES = {
   wrapping: {
     pose: 'wrapping',
     ears: 'normal',
-    face: 'neutral',
+    face: 'starry',
     frames: 4,
     frameMs: 120,
     next: 'wearing'

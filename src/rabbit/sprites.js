@@ -90,7 +90,18 @@ const widen = (sprite) => sprite.map((row) => row.slice(0, CENTER) + row[CENTER 
 const adapt = (sprite) => widen(shift(sprite));
 const padR = (rows, height = HEIGHT) => pad(rows, height, WIDTH);
 
-export const body = adapt(otterBody);
+/* 몸통은 단수달보다 한 줄 짧습니다 — 토끼는 통통하고 짤막해야
+   귀엽고, 덤으로 발이 몸통 아래로 한 칸 더 나와 흔들리는 게 잘
+   보입니다. 가장 넓은 구간(단수달 y24~27)은 같은 줄이 이어지므로
+   그중 하나를 빼도 실루엣이 깨지지 않습니다. */
+const SHORTEN_ROW = 25;
+const shortenBody = (sprite) => [
+  ...sprite.slice(0, SHORTEN_ROW),
+  ...sprite.slice(SHORTEN_ROW + 1),
+  '.'.repeat(sprite[0].length) // 줄어든 만큼 맨 아래를 비워 길이를 맞춥니다
+];
+
+export const body = adapt(shortenBody(otterBody));
 
 /* 눈과 주둥이 — 단수달 머리에서 이 부분만 다시 그립니다(외곽선과
    볼터치 fff 는 그대로).
@@ -98,7 +109,9 @@ export const body = adapt(otterBody);
    눈은 단수달 자리(넓힌 뒤 x9~11 / x21~23)에서 좌우 한 칸씩 안으로
    당겨 x10~12 / x20~22 에 둡니다 — 토끼 머리가 단수달보다 크고 둥글어
    같은 자리에 두면 눈이 멀어 보였습니다. 눈동자 하이라이트(w)는
-   단수달처럼 두 눈 다 왼쪽에 둡니다.
+   단수달처럼 두 눈 다 같은 쪽(왼쪽 위)에 둡니다 — 빛은 한쪽에서
+   들어오니 좌우를 거울처럼 뒤집으면 오히려 어색합니다. 완성 표정
+   (starry)이 더하는 반짝임도 같은 이유로 두 눈 다 오른쪽 아래입니다.
 
    단수달의 주둥이(연한 l)는 뺨에서 뺨까지 퍼진 넓은 가로 띠라
    수달답지만 토끼에는 헐렁해서, 위는 좁고 아래로 갈수록 넓어지는
@@ -160,7 +173,7 @@ const RABBIT_FACES = {
     13: '..........eeb.......bee..........'
   }),
   // 기본 눈은 그대로 두고 대각선 아래에 반짝임 한 점만 더합니다.
-  starry: faceRows({ 11: '............w.......w............' })
+  starry: faceRows({ 11: '............w.........w..........' })
 };
 
 export const faces = Object.fromEntries(
@@ -242,18 +255,26 @@ export function finishedPiece(top = 20) {
    덮도록 했습니다 — 한 줄이라도 좁으면 머리 외곽선이 모자 밖으로
    삐져나옵니다. 귀는 머리보다 먼저(뒤에) 그려지므로 모자 위로
    그대로 솟아 있습니다. */
+/* [행, 왼쪽, 오른쪽, 통짜 테두리 여부]. 머리가 시작하는 y10 부터는
+   머리 실루엣과 같거나 한 칸 넓어야 머리 외곽선이 모자 밖으로
+   삐져나오지 않습니다. 그 위 두 줄(y8~9)은 머리가 없는 자리라
+   자유롭게 좁혀서 꼭대기를 둥글렸습니다. */
 const BEANIE_SPANS = [
-  [9, 11, 21],  // 머리 꼭대기(y10) 바로 위 — 모자 천의 두께
-  [10, 10, 22],
+  [8, 13, 19, true], // 둥근 꼭대기
+  [9, 11, 21],
+  [10, 10, 22], // 머리(x11~21)보다 한 칸씩 넓게 — 모자 천의 두께
   [11, 9, 23],
   [12, 8, 24],
   [13, 7, 25],
-  [14, 6, 26],
+  [14, 6, 26, true], // 접단 경계
   [15, 6, 26],
-  [16, 5, 27], // 접단 경계
-  [17, 5, 27]  // 접단 — 바로 아래(y18)가 눈이라 여기서 멈춥니다
+  [16, 5, 27],
+  // 접단 아래 테두리. 이게 없으면 모자 밑단이 얼굴 털과 바로 맞닿아
+  // 윤곽 없이 색만 바뀐 것처럼 보입니다 — 바로 아래(y18)가 눈이라
+  // 모자는 여기서 끝내야 해서, 마지막 줄 자체를 테두리로 씁니다.
+  [17, 5, 27, true]
 ];
-export const WORN_SPAN = [9, 17];
+export const WORN_SPAN = [8, 17];
 
 // 비니는 6줄이라 단수달 목도리(8줄)보다 얕습니다. engine.js 가
 // top + SPAN + 1 까지 잘라 줄무늬를 입히므로 그 높이에 맞춥니다.
@@ -268,8 +289,8 @@ export const SPREAD_PAWS = { lx: 6, rx: 22, dy: 3 };
 
 export function wornScarf() {
   const buf = buffer();
-  BEANIE_SPANS.forEach(([y, left, right], i) => {
-    beanieRow(buf, y, left, right, (i % 2) ? 'y' : 'd', y === 9 || y === 16);
+  BEANIE_SPANS.forEach(([y, left, right, edge], i) => {
+    beanieRow(buf, y, left, right, (i % 2) ? 'y' : 'd', edge);
   });
   return padR(buf);
 }
