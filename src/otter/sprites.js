@@ -6,9 +6,28 @@
  * https://instagram.com/tteoboja_0
  */
 
-import { pad, buffer, put, line } from '../pixel.js';
+import { SIZE, pad, buffer, put, line } from '../pixel.js';
 
 export const SIGNATURE = '@tteoboja_0';
+
+/* 이 모듈의 픽셀은 32열 좌표계로 그려져 있습니다 — 좌우 대칭축이
+   열과 열 사이(x15.5)에 떨어지는 격자라, 가운데에 두는 것은 무엇이든
+   짝수 폭일 수밖에 없습니다(1px 인중을 못 그립니다). 내보낼 때 한가운데
+   열을 복제해 33열로 넓히면 대칭축이 가운데 열(x16) 위에 올라가
+   홀수 폭 디테일도 정확히 가운데 정렬됩니다.
+
+   몸통·머리처럼 가운데가 단색인 부위는 같은 색 한 줄이 늘 뿐이라
+   티가 안 나고, 오른쪽에 있던 것들은 한 칸씩 밀려 새 축에 맞습니다 —
+   그래서 아래 좌표 상수들은 32열 기준 그대로 둬도 됩니다. 가운데로
+   무늬가 지나가는 편물(knit)만은 복제하면 코가 겹쳐 보여서 처음부터
+   33열로 그립니다. */
+export const WIDTH = 33;
+const CENTER = 16;
+const widen = (sprite) => sprite.map((row) => row.slice(0, CENTER) + row[CENTER - 1] + row.slice(CENTER));
+/** 스프라이트를 내주는 함수를 넓혀서 내보내는 래퍼. */
+const wide = (fn) => (...args) => widen(fn(...args));
+const padW = (rows) => pad(rows, SIZE, WIDTH);
+
 
 /* ── 팔레트 ───────────────────────────────────────────────── */
 
@@ -100,7 +119,7 @@ const TAIL_ROWS = {
  * 기본은 offset 0(고정 위치). 착용 중 신남을 표현할 땐 위아래로
  * 1px 씩 흔들리도록 offset 을 옮겨 찍습니다.
  */
-export function tail(offset = 0) {
+function raw_tail(offset = 0) {
   if (offset === 0) return pad(TAIL_ROWS);
   const buf = buffer();
   Object.entries(TAIL_ROWS).forEach(([y, row]) => {
@@ -111,7 +130,7 @@ export function tail(offset = 0) {
   return pad(buf);
 }
 
-export const body = pad({
+const raw_body = pad({
   20: '...........obbbbbbbbo...........',
   21: '..........obbbbbbbbbbo..........',
   22: '.........obbbbbbbbbbbbo.........',
@@ -125,7 +144,7 @@ export const body = pad({
   30: '..........oooooooooooo..........'
 });
 
-export const head = pad({
+const raw_head = pad({
   2:  '...........oooooooooo...........',
   3:  '.........oobbbbbbbbbboo.........',
   4:  '........obbbbbbbbbbbbbbo........',
@@ -133,22 +152,25 @@ export const head = pad({
   6:  '......obbbbbbbbbbbbbbbbbbo......',
   7:  '......obbbbbbbbbbbbbbbbbbo......',
   8:  '.....obbbbbbbbbbbbbbbbbbbbo.....',
-  9:  '.....obbbbbbbbbbbbbbbbbbbbo.....',
-  10: '.....obbbweebbbbbbbbweebbbo.....',
-  11: '.....obbbeeebbbbbbbbeeebbbo.....',
-  12: '.....obbbeeebbbbbbbbeeebbbo.....',
-  13: '....offfbeeebbbbbbbbeeebfffo....',
+  // 눈썹 — 눈 위로 한 줄 띄우고 눈 안쪽 두 칸에만 짧게. 눈 폭만큼 길게
+  // 그으면 진지해 보이고 화난 표정에서 눈꺼풀과 겹쳐 무거워져서, 작은
+  // 점처럼 두어 '말수 적은 감자' 같은 순한 인상을 냅니다.
+  9:  '.....obbbbbmmbbbbbbmmbbbbbo.....',
+  10: '.....obbbbbbbbbbbbbbbbbbbbo.....',
+  11: '.....obbbbweebbbbbbweebbbbo.....',
+  12: '.....obbbbeeebbbbbbeeebbbbo.....',
+  13: '....obfffbeeebbbbbbeeebfffbo....',
   14: '....offfbblllllmmlllllbbfffo....',
   15: '....offfbbllllllllllllbbfffo....',
   16: '.....offbbllllmmmmllllbbffo.....',
   17: '......obbllllllllllllllbbo......',
-  18: '........obbllllllllllbbo........',
+  18: '........ollllllllllllllo........',
   19: '..........oooooooooooo..........'
 });
 
 /* ── 귀 ───────────────────────────────────────────────────── */
 
-export const ears = {
+const raw_ears = {
   normal: pad({
     4: '.....ooo................ooo.....',
     5: '.....ofo................ofo.....',
@@ -164,28 +186,27 @@ export const ears = {
 };
 
 /* ── 표정 ─────────────────────────────────────────────────── */
-/* 눈 4줄(10~13)과 입 1줄(16)만 덮어쓰는 방식입니다.            */
+/* 눈 3줄(11~13)과 입 1줄(16)만 덮어쓰는 방식입니다.            */
 /* 얼굴 본체는 하나뿐이라 조합만 바꿔 표정을 늘릴 수 있습니다.  */
 
+/* 눈은 3열×3행(y11~13, x10~12 / x19~21)입니다. 한때 3×4 였다가 눈
+   사이가 멀어 보여 안쪽으로 당겼고, 이 자리를 쓰는 표정도 모두 맞췄습니다. */
 const EYE_COVER = pad({
-  10: '.........bbb........bbb.........',
-  11: '.........bbb........bbb.........',
-  12: '.........bbb........bbb.........',
-  13: '.........bbb........bbb.........'
+  11: '..........bbb......bbb..........',
+  12: '..........bbb......bbb..........',
+  13: '..........bbb......bbb..........'
 });
 
-export const faces = {
+const raw_faces = {
   // 기본: 덮어쓰지 않음 (큰 눈 + 무표정)
   neutral: null,
 
   // 일자 눈. 깜빡임과 감기에 함께 씁니다.
   // 지속 시간이 달라서 화면에서는 헷갈리지 않습니다.
-  flat: [EYE_COVER, pad({ 12: '.........eee........eee.........' })],
-
+  flat: [EYE_COVER, pad({ 12: '..........eee......eee..........' })],
   // 눈꺼풀을 반쯤 내리고 입을 짧게·비대칭으로.
   annoyed: [pad({
-    10: '.........bbb........bbb.........',
-    11: '.........ooo........ooo.........',
+    11: '..........ooo......ooo..........',
     16: '..............mmll..............'
   })],
 
@@ -193,19 +214,18 @@ export const faces = {
   // 90도 돌린(= 위는 막히고 아래가 트인 ⊓자) 모양입니다.
   // (README 원칙: 이 캐릭터는 입보다 눈·귀로 표현합니다.)
   proud: [EYE_COVER, pad({
-    12: '.........eee........eee.........',
-    13: '.........e.e........e.e.........'
+    12: '..........eee......eee..........',
+    13: '..........e.e......e.e..........'
   })],
-
   // neutral 의 기본 눈(하이라이트 점 하나)은 그대로 두고, 대각선
   // 아래쪽에 반짝임 한 점을 더해 초롱초롱하게 만듭니다. 덮어쓰지
   // 않으므로 다른 표정과 달리 EYE_COVER 가 필요 없습니다.
   starry: [pad({
-    11: '...........w..........w.........'
+    12: '............w........w..........'
   })]
 };
 
-export const bang = pad({
+const raw_bang = pad({
   2: '..............................h.',
   3: '..............................h.',
   5: '..............................h.'
@@ -224,7 +244,7 @@ export const bang = pad({
  * 가로(x)로 ±1 오프셋해야 합니다 — 세로로 오프셋하면 선 방향과
  * 같은 축이라 두께가 거의 안 생깁니다.
  */
-export function earNeedle() {
+function raw_earNeedle() {
   const buf = buffer();
   const base = [27, 7];
   const tip = [28, 1];
@@ -247,7 +267,7 @@ export function earNeedle() {
  * 벌어지는 자세(자랑하기 등)에서 이게 없으면 손만 따로 떠 보입니다.
  * 바늘과 같은 이중선 기법(테두리 두 줄 + 심 한 줄)을 씁니다.
  */
-export function arm(x0, y0, x1, y1) {
+function raw_arm(x0, y0, x1, y1) {
   const buf = buffer();
   line(buf, x0, y0 + 1, x1, y1 + 1, 'o');
   line(buf, x0, y0 - 1, x1, y1 - 1, 'o');
@@ -265,7 +285,7 @@ export function arm(x0, y0, x1, y1) {
  * 평소 모습)에서는 안쪽 면만 테두리가 없어 손이 편물에 스몄습니다.
  * 네 면을 다 두르고, 팔은 어차피 손보다 먼저 그려져 손 뒤로 들어갑니다.
  */
-export function paws(lx, ly, rx, ry) {
+function raw_paws(lx, ly, rx, ry) {
   const buf = buffer();
   const cap = ['o', 'o', 'o', 'o'];
   const fill = ['o', 'p', 'p', 'o'];
@@ -279,6 +299,11 @@ export function paws(lx, ly, rx, ry) {
 }
 
 export const PAWS_REST = { lx: 7, ly: 21, rx: 21, ry: 21 };
+
+// 자랑하기·입어보기 전환에서 완성품을 잡는 자리. 예전에는 engine.js
+// 안에 lx 4 / rx 24 로 박혀 있었는데, 그러면 손이 목도리(x9~23) 양
+// 끝보다 한참 밖에 놓여 목도리만 두 손 사이에 붕 떠 보였습니다.
+export const SPREAD_PAWS = { lx: 6, rx: 22 };
 
 /* ── 바늘 ─────────────────────────────────────────────────── */
 /* 축은 앞발 안에 고정. 양 끝이 반대로 움직여야 회전으로 읽힙니다. */
@@ -308,7 +333,7 @@ function stopper(buf, tip, inward) {
  * @param {number} frame  0-2
  * @param {number} pullOut 0=제자리, 1=빠지는 중, 2=완전히 뺌
  */
-export function needles(frame, pullOut = 0) {
+function raw_needles(frame, pullOut = 0) {
   const buf = buffer();
   const f = needleFrames[frame % needleFrames.length];
   const segments = [
@@ -340,26 +365,37 @@ export function needles(frame, pullOut = 0) {
 
 /* ── 뜨개감 ───────────────────────────────────────────────── */
 
+/* 편물만은 widen() 을 안 거치고 처음부터 33열로 그립니다 — 코 무늬가
+   한가운데를 지나가서, 가운데 열을 복제하면 같은 코가 두 번 찍혀
+   체크무늬에 세로 이음매가 생깁니다. 폭은 9칸(x12~20, 합 32 → 대칭). */
+const KNIT_LEFT = 12;
+const KNIT_RIGHT = 20;
+const KNIT_LAST_ROW = 29; // 캐스트온 테두리는 그 아래 한 줄(30)까지
+
 export function knit(length, flash = false) {
-  const buf = {};
-  if (length <= 0) return pad(buf);
-  buf[KNIT_TOP] = '............kkkkkkkk............';
+  const buf = buffer();
+  if (length <= 0) return padW(buf);
+  const edge = (y) => {
+    for (let x = KNIT_LEFT; x <= KNIT_RIGHT; x++) put(buf, x, y, 'k');
+  };
+  edge(KNIT_TOP);
   for (let i = 1; i <= length; i++) {
     const y = KNIT_TOP + i;
-    if (y > 29) break;
-    buf[y] = (i % 2)
-      ? '............kydydydk............'
-      : '............kdydydyk............';
+    if (y > KNIT_LAST_ROW) break;
+    for (let x = KNIT_LEFT; x <= KNIT_RIGHT; x++) {
+      const edgeCol = x === KNIT_LEFT || x === KNIT_RIGHT;
+      put(buf, x, y, edgeCol ? 'k' : (((x + i) % 2) ? 'd' : 'y'));
+    }
   }
-  if (flash && KNIT_TOP + 1 <= 29) {
-    buf[KNIT_TOP + 1] = '............kFFFFFFk............';
+  if (flash && KNIT_TOP + 1 <= KNIT_LAST_ROW) {
+    for (let x = KNIT_LEFT + 1; x < KNIT_RIGHT; x++) put(buf, x, KNIT_TOP + 1, 'F');
   }
-  buf[Math.min(KNIT_TOP + length + 1, 30)] = '............kkkkkkkk............';
-  return pad(buf);
+  edge(Math.min(KNIT_TOP + length + 1, KNIT_LAST_ROW + 1));
+  return padW(buf);
 }
 
 /** 감는 동안 옆에 내려둔 편물. */
-export const asideKnit = pad({
+const raw_asideKnit = pad({
   26: '.......................kkkkkk...',
   27: '.......................kydydk...',
   28: '.......................kdydyk...',
@@ -367,7 +403,7 @@ export const asideKnit = pad({
   30: '.......................kkkkkk...'
 });
 
-export function asideNeedle() {
+function raw_asideNeedle() {
   const buf = buffer();
   line(buf, 23, 31, 30, 27, 'g');
   line(buf, 23, 29, 30, 25, 'g');
@@ -407,7 +443,7 @@ const FLOOR_BALL = {
   })
 };
 
-export function floorBall(amount) {
+function raw_floorBall(amount) {
   return FLOOR_BALL[ballTier(amount)];
 }
 
@@ -462,13 +498,13 @@ export const HELD_BALL = {
   }
 };
 
-export function heldBall(amount) {
+function raw_heldBall(amount) {
   return HELD_BALL[Math.max(1, ballTier(amount))];
 }
 
 /* ── 실 가닥 ──────────────────────────────────────────────── */
 
-export function feedStrand(knitLength, ballAmount) {
+function raw_feedStrand(knitLength, ballAmount) {
   if (ballAmount <= 0) return pad({});
   const buf = buffer();
   const anchor = floorBallAnchor(ballAmount);
@@ -477,14 +513,14 @@ export function feedStrand(knitLength, ballAmount) {
   return pad(buf);
 }
 
-export function windStrand(ballAmount) {
+function raw_windStrand(ballAmount) {
   const buf = buffer();
   line(buf, 13, 31, 15, heldBall(ballAmount).bottom, 'k');
   return pad(buf);
 }
 
 /** 당기는 중의 실. 한 번 꺾여야 팽팽하게 읽힙니다. */
-export function pulledYarn(rx, ry) {
+function raw_pulledYarn(rx, ry) {
   const buf = buffer();
   const mx = Math.round((20 + rx) / 2);
   const my = Math.round((KNIT_TOP + ry + 1) / 2) - 1;
@@ -495,37 +531,36 @@ export function pulledYarn(rx, ry) {
 
 /* ── 바닥에 풀린 실 ───────────────────────────────────────── */
 /* 무작위로 흩뿌리면 프레임마다 모양이 바뀌어 지글거립니다.     */
-/* 쌓이는 순서를 고정해둡니다.                                  */
+/* 바닥에 쌓인 실. 쌓이는 순서를 고정해두고, widen() 을 안 거치고
+   처음부터 33열로 그립니다 — 한 칸 걸러 하나씩 얹는 무늬가 한가운데를
+   지나가서, 가운데 열을 복제하면 그 자리만 두 칸이 붙어 버립니다.
 
-const PILE = [
-  {},
-  { 31: '..............kk................' },
-  { 31: '.............kkkk...............' },
-  { 30: '...............k................',
-    31: '............kkkkkk..............' },
-  { 30: '..............k.k...............',
-    31: '...........kkkkkkkk.............' },
-  { 30: '.............k.k.k..............',
-    31: '..........kkkkkkkkkk............' },
-  { 29: '...............k................',
-    30: '............k.k.k.k.............',
-    31: '.........kkkkkkkkkkkk...........' },
-  { 29: '..............k.k...............',
-    30: '...........k.k.k.k.k............',
-    31: '........kkkkkkkkkkkkkk..........' },
-  { 29: '.............k.k.k..............',
-    30: '..........k.k.k.k.k.k...........',
-    31: '.......kkkkkkkkkkkkkkkk.........' },
-  { 29: '............k.k.k.k.............',
-    30: '.........k.k.k.k.k.k.k..........',
-    31: '......kkkkkkkkkkkkkkkkkk........' }
+   각 단계는 [맨 아랫줄, 가운뎃줄, 윗줄]의 반폭입니다(대칭축 x16 에서
+   좌우로 뻗는 칸 수). 맨 아랫줄만 꽉 채우고 위는 한 칸 걸러 얹습니다.
+   32열 시절에는 이 무더기가 한 칸 왼쪽으로 치우쳐 있었는데, 반폭으로
+   그리면서 자연히 가운데에 맞았습니다. */
+const PILE_TIERS = [
+  [], [1], [2], [3, 0], [4, 1], [5, 2], [6, 3, 0], [7, 4, 1], [8, 5, 2], [9, 6, 3]
 ];
 
-export const MAX_PILE = PILE.length - 1;
+export const MAX_PILE = PILE_TIERS.length - 1;
 
 export function pile(amount) {
-  return pad(PILE[Math.max(0, Math.min(amount, MAX_PILE))]);
+  const buf = buffer();
+  const tier = PILE_TIERS[Math.max(0, Math.min(amount, MAX_PILE))];
+  const [bottom, middle, top] = tier;
+  if (bottom !== undefined) {
+    for (let x = CENTER - bottom; x <= CENTER + bottom; x++) put(buf, x, 31, 'k');
+  }
+  if (middle !== undefined) {
+    for (let x = CENTER - middle; x <= CENTER + middle; x += 2) put(buf, x, 30, 'k');
+  }
+  if (top !== undefined) {
+    for (let x = CENTER - top; x <= CENTER + top; x += 2) put(buf, x, 29, 'k');
+  }
+  return padW(buf);
 }
+
 
 export const yanks = [[21, 21], [25, 18], [23, 20]];
 
@@ -537,9 +572,14 @@ export const yanks = [[21, 21], [25, 18], [23, 20]];
 /** top~bottom 사이 몸통 길이. 9로 늘려봤다가 너무 길어서 되돌렸습니다. */
 export const FINISHED_PIECE_SPAN = 6;
 
+/* 완성품·착용 목도리는 widen() 을 안 거치고 처음부터 33열로 그립니다 —
+   술이 한 칸 걸러 하나씩 달리고 자락도 좌우 한 쌍이라, 가운데 열을
+   복제하면 그 간격이 한 군데만 어긋나 좌우가 틀어집니다. */
 export function finishedPiece(top = 20) {
   const buf = buffer();
-  const left = 9, right = 22, bottom = top + FINISHED_PIECE_SPAN;
+  const left = 9;
+  const right = 23; // 9+23=32 → 가운데 열(x16) 기준 좌우 대칭
+  const bottom = top + FINISHED_PIECE_SPAN;
   for (let x = left; x <= right; x++) {
     put(buf, x, top, 'k');
     put(buf, x, bottom, 'k');
@@ -553,36 +593,36 @@ export function finishedPiece(top = 20) {
     for (let x = left + 1; x < right; x++) put(buf, x, y, stripe);
   }
   for (let x = left + 1; x < right; x += 2) put(buf, x, bottom + 1, 'k');
-  return pad(buf);
+  return padW(buf);
 }
 
 /** 목에 두른 뒤의 모습. 어깨선을 덮고 앞으로 두 자락이 늘어집니다. */
 export function wornScarf() {
   const buf = buffer();
-  for (let x = 9; x <= 22; x++) {
+  // 목에 두른 부분. 양 끝도 테두리로 막아야 아래 자락처럼 윤곽이
+  // 있는 것으로 보입니다 — 없으면 색만 있고 테두리 없이 붕 뜹니다.
+  const left = 9;
+  const right = 23;
+  for (let x = left; x <= right; x++) {
+    const edge = x === left || x === right;
     put(buf, x, 19, 'k');
-    // 목 두른 부분 양 끝(9, 22)도 테두리로 막아야 아래 자락처럼
-    // 윤곽이 있는 것으로 보입니다 — 없으면 목도리가 색만 있고
-    // 테두리 없이 붕 떠 보입니다.
-    put(buf, x, 20, (x === 9 || x === 22) ? 'k' : 'y');
-    put(buf, x, 21, (x === 9 || x === 22) ? 'k' : 'd');
+    put(buf, x, 20, edge ? 'k' : 'y');
+    put(buf, x, 21, edge ? 'k' : 'd');
   }
+  // 앞으로 늘어뜨린 두 자락. 좌우 합이 32 라 가운데 열 기준 대칭입니다.
+  const tails = [[11, 14], [18, 21]];
   for (let y = 22; y <= 27; y++) {
     const ch = (y % 2) ? 'y' : 'd';
-    put(buf, 12, y, 'k');
-    put(buf, 13, y, ch);
-    put(buf, 14, y, ch);
-    put(buf, 15, y, 'k');
-    put(buf, 18, y, 'k');
-    put(buf, 19, y, ch);
-    put(buf, 20, y, ch);
-    put(buf, 21, y, 'k');
+    tails.forEach(([l, r]) => {
+      for (let x = l; x <= r; x++) put(buf, x, y, (x === l || x === r) ? 'k' : ch);
+    });
   }
-  put(buf, 13, 28, 'k');
-  put(buf, 14, 28, 'k');
-  put(buf, 19, 28, 'k');
-  put(buf, 20, 28, 'k');
-  return pad(buf);
+  // 자락 끝 술.
+  tails.forEach(([l, r]) => {
+    put(buf, l + 1, 28, 'k');
+    put(buf, r - 1, 28, 'k');
+  });
+  return padW(buf);
 }
 
 /* ── 반짝임 ───────────────────────────────────────────────── */
@@ -592,7 +632,7 @@ export const SPARK = { s: '#ffd76b', t: '#fff3c4' };
 
 const SPARK_SPOTS = [[2, 4], [29, 5], [2, 12], [29, 13], [3, 20], [28, 19]];
 
-export function sparkles(frame) {
+function raw_sparkles(frame) {
   const buf = buffer();
   SPARK_SPOTS.forEach(([x, y], i) => {
     if ((frame + i) % 3 !== 0) return;
@@ -619,7 +659,7 @@ const HEART_SPOTS = [
 ];
 const HEART_CYCLE = 26;
 
-export function hearts(frame) {
+function raw_hearts(frame) {
   const buf = buffer();
   HEART_SPOTS.forEach(({ x, phase }) => {
     const y = 24 - ((frame + phase) % HEART_CYCLE);
@@ -634,7 +674,7 @@ export function hearts(frame) {
   return pad(buf);
 }
 
-export function sparkleBurst() {
+function raw_sparkleBurst() {
   const buf = buffer();
   SPARK_SPOTS.forEach(([x, y]) => {
     put(buf, x, y, 's');
@@ -644,4 +684,59 @@ export function sparkleBurst() {
     put(buf, x, y + 1, 't');
   });
   return pad(buf);
+}
+
+
+/* ── 33열로 넓혀서 내보내기 ───────────────────────────────── */
+/* 위 raw_* 는 전부 32열 좌표계로 그린 원본입니다. 바깥에서 쓰는 건
+   여기 넓힌 것들뿐이라, 그리는 쪽은 32열 좌표 그대로 생각하면 됩니다. */
+
+export const body = widen(raw_body);
+
+/* 주둥이 줄(y14~18)은 넓힌 뒤 33열 좌표로 다시 씁니다. widen() 은 가운데
+   열을 복제하므로 출력의 x15 와 x16 이 늘 같은 값이 되고, 그 탓에 가운데
+   정렬이 되는 폭은 3·5·7칸뿐입니다 — 1칸짜리 코를 가운데에 찍으려면
+   이 줄들만은 직접 써야 합니다.
+
+   주둥이는 폭 11→13→15→15→15 로 아래로 갈수록 넓어지는 반원이고,
+   코는 1칸, 입은 3칸(둘 다 x16 중심). 볼터치도 이 줄들에 걸쳐 있어
+   함께 그립니다 — 윗줄(y13, 원본 머리)과 이어서 3·5·5·3 타원입니다. */
+const MUZZLE_ROWS = {
+  14: '....offfffblllllmlllllbfffffo....',
+  15: '....offffflllllllllllllfffffo....',
+  16: '.....offfllllllmmmllllllfffo.....',
+  17: '......obblllllllllllllllbbo......',
+  18: '........olllllllllllllllo........'
+};
+
+export const head = widen(raw_head).map((row, y) => MUZZLE_ROWS[y] ?? row);
+export const bang = widen(raw_bang);
+export const asideKnit = widen(raw_asideKnit);
+export const ears = Object.fromEntries(
+  Object.entries(raw_ears).map(([key, sprite]) => [key, widen(sprite)])
+);
+export const faces = Object.fromEntries(
+  Object.entries(raw_faces).map(([key, layers]) => [key, layers?.map(widen) ?? null])
+);
+
+export const tail = wide(raw_tail);
+export const earNeedle = wide(raw_earNeedle);
+export const arm = wide(raw_arm);
+export const paws = wide(raw_paws);
+export const needles = wide(raw_needles);
+export const asideNeedle = wide(raw_asideNeedle);
+export const floorBall = wide(raw_floorBall);
+export const feedStrand = wide(raw_feedStrand);
+export const windStrand = wide(raw_windStrand);
+export const pulledYarn = wide(raw_pulledYarn);
+export const sparkles = wide(raw_sparkles);
+export const hearts = wide(raw_hearts);
+export const sparkleBurst = wide(raw_sparkleBurst);
+
+/* heldBall 은 스프라이트 하나와 좌표 여러 개를 함께 돌려줍니다.
+   좌표는 그리기 함수의 인자로만 쓰여 32열 기준이어야 하므로(그 함수가
+   결과를 알아서 넓힙니다) 스프라이트만 넓힙니다. */
+export function heldBall(amount) {
+  const held = raw_heldBall(amount);
+  return { ...held, sprite: widen(held.sprite) };
 }

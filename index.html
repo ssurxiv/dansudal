@@ -139,9 +139,6 @@
      이 서브트리에서만 값을 가집니다 — 지금은 확대/축소 버튼이 없어
      항상 1이지만, 나중에 붙이면 이 선언 하나로 서로 안 섞입니다. */
   #panel-rabbit { --zoom: 1; }
-  /* 코토키 캔버스는 33열이라 32열 기준 너비(224px = 32×7)로 늘리면
-     한 칸이 6.79px 이 되어 픽셀이 뭉개집니다 — 33×7 로 맞춥니다. */
-  #panel-rabbit .pixel-stage { width: min(calc(231px * var(--zoom)), 100%); }
 
   .page-head {
     display: flex;
@@ -180,7 +177,9 @@
      (#r-stage)는 #panel-rabbit 에서 --zoom 을 1로 새로 선언해두어
      서로 독립적입니다(아래 #panel-rabbit 규칙 참조). */
   .pixel-stage {
-    width: min(calc(224px * var(--zoom)), 100%);
+    /* 33열 × 7px. 열 수의 배수가 아니면 한 칸이 소수 픽셀이 되어
+       image-rendering: pixelated 로도 칸마다 폭이 들쭉날쭉해집니다. */
+    width: min(calc(231px * var(--zoom)), 100%);
     image-rendering: pixelated;
     display: block;
     margin: 0 auto;
@@ -378,20 +377,13 @@
     transform: none;
   }
   button:disabled:hover { background: #fff; }
-  #add:disabled:hover { background: #e3f2ec; }
   button:focus-visible { outline: 2px solid var(--yarn); outline-offset: 2px; }
-  /* 기본 액션(한 단 뜨기) — 진한 색 배경 + 흰 글씨는 대비는 나쁘지
-     않지만 카드 위주의 파스텔 톤 화면에서 혼자 튀어 보였습니다.
-     연한 민트 배경 + 진한 초록 글씨로 바꿔 어느 화면에서도 또렷하게
-     읽히면서 전체 톤과 어울리게 합니다. */
-  #add {
-    background: #e3f2ec;
-    border: 2px solid var(--yarn);
-    color: var(--yarn);
-  }
-  #add:hover { background: #d5ece3; }
-  #wear { border-color: var(--yarn); color: var(--yarn); }
-  #reset { color: var(--muted); }
+  /* 한 단 뜨기는 한때 민트 배경 + 초록 글씨로 강조했지만, 그 규칙이
+     단수달(#add)에만 걸려 있어 코토키(#r-add)와 생김새가 달랐습니다.
+     어차피 버튼 줄에서 제일 왼쪽·제일 자주 누르는 자리라 강조가 없어도
+     찾기 쉬워서, 나머지 버튼과 같은 모양으로 통일합니다. */
+  #wear, #r-wear { border-color: var(--yarn); color: var(--yarn); }
+  #reset, #r-reset { color: var(--muted); }
 
   input[type="number"] {
     width: 88px;
@@ -584,7 +576,7 @@
 
   <div class="stage-wrap">
     <div class="speech-bubble kind-chat" id="bubble">대기 중</div>
-    <canvas id="stage" class="pixel-stage" width="32" height="32"
+    <canvas id="stage" class="pixel-stage" width="33" height="32"
             aria-label="뜨개질하는 수달 캐릭터"></canvas>
     <p id="status" class="sr-only" aria-live="polite">대기 중</p>
   </div>
@@ -680,8 +672,6 @@
 
   <div class="stage-wrap">
     <div class="speech-bubble kind-chat" id="r-bubble">대기 중</div>
-    <!-- 코토키는 가운데 열 위에 좌우 대칭축을 두려고 33열을 씁니다
-         (rabbit/sprites.js 의 WIDTH 참조). -->
     <canvas id="r-stage" class="pixel-stage" width="33" height="40"
             aria-label="코바늘 뜨는 토끼 캐릭터"></canvas>
     <p id="r-status" class="sr-only" aria-live="polite">대기 중</p>
