@@ -36,6 +36,8 @@ import {
   RIGHT_PIVOT,
   KNIT_TOP as OTTER_KNIT_TOP,
   MAX_KNIT,
+  WIDTH,
+  knit as otterKnit,
   asideKnit as otterAsideKnit,
   ballTier,
   floorBall as otterFloorBall,
@@ -72,22 +74,16 @@ const HEIGHT = 32 + SHIFT;
    하나를 끼워 넣으면 대칭축이 그 열(x16) 위에 놓여 홀수 폭(1px·3px)
    도 정확히 가운데 정렬됩니다.
 
-   재사용하는 단수달 스프라이트는 widen() 이 한가운데 열을 복제해
-   끼워 넣는 식으로 넓힙니다. 몸통·머리처럼 가운데가 단색으로 채워진
-   부위는 같은 색 한 줄이 늘 뿐이라 티가 안 나고, 오른쪽에 있던
-   것들(오른손·실뭉치 등)은 자동으로 한 칸씩 밀려 새 대칭축에
-   맞습니다 — 좌표를 일일이 고칠 필요가 없습니다. 가운데에 무늬가
-   지나가는 편물만은 복제하면 코가 겹쳐 보여서 따로 그립니다(knit).
+   단수달 팩이 이미 33열로 내주므로(otter/sprites.js 의 WIDTH) 여기서
+   재사용할 때는 세로로 밀기만 하면 됩니다.
 
    대칭 규칙: 열 하나짜리 중심은 x16, 좌우 한 쌍은 합이 32(픽셀 인덱스)
    또는 33(타원 중심처럼 x+0.5 로 재는 값)이어야 합니다. */
-export const WIDTH = 33;
-const CENTER = 16;
+export { WIDTH }; // 이 팩의 캔버스 폭도 단수달과 같은 33열입니다
 
 const shift = (sprite) => shiftRows(sprite, SHIFT, HEIGHT);
-const widen = (sprite) => sprite.map((row) => row.slice(0, CENTER) + row[CENTER - 1] + row.slice(CENTER));
 /** 단수달 스프라이트를 이 팩의 캔버스(33 × 40)로 옮깁니다. */
-const adapt = (sprite) => widen(shift(sprite));
+const adapt = shift;
 const padR = (rows, height = HEIGHT) => pad(rows, height, WIDTH);
 
 /* 몸통은 단수달보다 한 줄 짧습니다 — 토끼는 통통하고 짤막해야
@@ -117,22 +113,34 @@ export const body = adapt(shortenBody(otterBody));
    수달답지만 토끼에는 헐렁해서, 위는 좁고 아래로 갈수록 넓어지는
    반원으로 좁혔습니다.
 
-   입은 가로줄(-) 하나 대신 ㅗ 입니다. 33열로 넓히기 전에는 인중이
-   최소 2px 이라 2px 짜리 코와 붙어 덩어리로 뭉쳤는데, 이제 가운데
-   열(x16)이 있어 인중을 1px 로 세울 수 있습니다 — 3px 코 / 1px 인중 /
-   5px 가로바로 굵기가 확실히 달라서 코·인중·입이 따로 읽힙니다.
+   코와 입은 작게 갑니다("깨발랄 햇살" 컨셉). ㅗ·ㅅ·∨·벌린 입처럼
+   입을 크게 그린 시안은 모두 이 얼굴 크기에선 입 쪽이 무거워 보였고,
+   오히려 입을 줄이자 귀여워졌습니다. 코는 역삼각형(y21~22)을 주둥이
+   윗선에 걸치게 두고, 눈꺼풀과 같은 자주(v)로 칠합니다. 분홍(볼터치색)은
+   분홍 볼·귀 사이에서 묻혔고, 눈과 같은 짙은 색(e)은 눈 두 개와 같은
+   무게로 찍혀 튀었습니다 — 그 중간 톤입니다. 입은 가로 3칸(y25).
+
+   볼터치는 3·5·5·3 타원(y21~24)으로 크게 — 발그레한 볼이 발랄한
+   인상을 가장 크게 좌우합니다. 눈은 3칸×4줄 네모 그대로인데, 폭이
+   3칸뿐이라 모서리를 깎으면 둥글어지는 대신 +자나 물방울이 됩니다.
 
    행 번호는 최종 좌표(이미 SHIFT 만큼 밀린 값)이고, 폭도 이미 33열
    이라 widen() 을 거치지 않습니다. */
 const HEAD_ROWS = {
+  // 단수달은 이 줄에 눈썹이 있지만 토끼는 눈썹 없이 갑니다.
+  17: '.....obbbbbbbbbbbbbbbbbbbbbo.....',
   18: '.....obbbbweebbbbbbbweebbbbo.....',
   19: '.....obbbbeeebbbbbbbeeebbbbo.....',
   20: '.....obbbbeeebbbbbbbeeebbbbo.....',
-  21: '.....obbbbeeebbbbbbbeeebbbbo.....',
-  22: '....offfbbbbbllmmmllbbbbbfffo....',
-  23: '....offfbbbbllllmllllbbbbfffo....',
-  24: '.....offbbblllmmmmmlllbbbffo.....',
-  25: '......obbbblllllllllllbbbbo......'
+  21: '.....offfbeeebbvvvbbeeebfffo.....',
+  22: '....offfffbbblllvlllbbbfffffo....',
+  23: '....offfffbblllllllllbbfffffo....',
+  24: '.....offfbblllllllllllbbfffo.....',
+  25: '......obbbbllllmmmllllbbbbo......',
+  // 단수달은 이 줄까지 주둥이를 좌우 끝까지 채워 넓게 끝내지만,
+  // 토끼 주둥이는 위가 좁고 아래가 넓은 반원이라 그대로 물려받으면
+  // 맨 아랫줄만 불룩 튀어나옵니다 — 윗줄과 같은 폭으로 맞춥니다.
+  26: '........obblllllllllllbbo........'
 };
 
 export const head = adapt(otterHead).map((row, y) => HEAD_ROWS[y] ?? row);
@@ -172,8 +180,16 @@ const RABBIT_FACES = {
     12: '..........bbe.......ebb..........',
     13: '..........eeb.......bee..........'
   }),
-  // 기본 눈은 그대로 두고 대각선 아래에 반짝임 한 점만 더합니다.
-  starry: faceRows({ 11: '............w.........w..........' })
+  // 완성(complete·showoff·wrapping)에는 눈 반짝임에 더해 입을 벌린 O 로.
+  // 3칸 폭에서 마름모로 그리면 가운데 한 칸 때문에 +자로 읽혀서, 네모
+  // 테두리 안에 분홍 속(혀)을 둡니다. 코가 한 칸 올라가(y21~22) O 와
+  // 한 줄 떨어져 있어서 코·입이 한 덩어리로 뭉치지 않습니다.
+  starry: faceRows({
+    11: '............w.........w..........',
+    16: '...............mmm...............',
+    17: '...............mfm...............',
+    18: '...............mmm...............'
+  })
 };
 
 export const faces = Object.fromEntries(
@@ -192,61 +208,45 @@ export function windStrand(ballAmount) { return adapt(otterWindStrand(ballAmount
 export function pulledYarn(rx, ry) { return adapt(otterPulledYarn(rx, ry)); }
 export function pile(amount) { return adapt(otterPile(amount)); }
 
-/* 편물만은 넓히지 않고 다시 그립니다 — 가운데로 코 무늬가 지나가서,
-   widen() 이 가운데 열을 복제하면 같은 코가 두 번 찍혀 체크무늬에
-   세로 이음매가 생깁니다. 폭을 9칸(x12~20, 합 32 → 대칭)으로 잡고
-   무늬를 새로 깔면 이음매 없이 떨어집니다. 좌표는 최종 기준입니다. */
-const KNIT_LEFT = 12;
-const KNIT_RIGHT = 20;
+export function knit(length, flash) { return shift(otterKnit(length, flash)); }
 
-export function knit(length, flash = false) {
-  const buf = buffer();
-  if (length <= 0) return padR(buf);
-  const edge = (y) => {
-    for (let x = KNIT_LEFT; x <= KNIT_RIGHT; x++) put(buf, x, y, 'k');
-  };
-  edge(KNIT_TOP);
-  for (let i = 1; i <= length; i++) {
-    const y = KNIT_TOP + i;
-    if (y >= MAX_ROW) break;
-    for (let x = KNIT_LEFT; x <= KNIT_RIGHT; x++) {
-      const edgeCol = x === KNIT_LEFT || x === KNIT_RIGHT;
-      put(buf, x, y, edgeCol ? 'k' : (((x + i) % 2) ? 'd' : 'y'));
-    }
-  }
-  if (flash && KNIT_TOP + 1 < MAX_ROW) {
-    for (let x = KNIT_LEFT + 1; x < KNIT_RIGHT; x++) put(buf, x, KNIT_TOP + 1, 'F');
-  }
-  edge(Math.min(KNIT_TOP + length + 1, MAX_ROW));
-  return padR(buf);
-}
 /* ── 완성품: 비니 ─────────────────────────────────────────── */
 /* 코바늘 작품은 긴 목도리보다 모자가 어울려서(사용자 요청) 단수달의
    목도리 대신 비니를 씁니다. 실 팔레트(k 테두리 / y·d 줄무늬)와
    finishedPiece(top)·wornScarf() 계약은 그대로 지키므로, 실 교체
    이력이 줄무늬로 남는 것도 목도리와 똑같이 동작합니다. */
 
-/** 한 줄을 테두리(k) + 줄무늬로 채웁니다. edge 면 줄 전체가 테두리. */
-function beanieRow(buf, y, left, right, stripe, edge = false) {
-  for (let x = left; x <= right; x++) {
-    put(buf, x, y, (edge || x === left || x === right) ? 'k' : stripe);
-  }
+/**
+ * 줄마다 [y, 왼쪽, 오른쪽] 폭으로 모자 모양을 잡고, 바깥과 맞닿은 칸을
+ * 전부 테두리(k)로 칠합니다. bands 에 든 줄은 통째로 테두리(접단 경계)
+ * 입니다. 예전엔 줄마다 양 끝만 k 로 찍어서, 폭이 두 칸씩 벌어지는
+ * 자리의 안쪽 칸과 맨 아랫줄이 테두리 없이 바깥에 드러났습니다.
+ */
+function drawBeanie(buf, spans, bands) {
+  const rows = new Map(spans.map(([y, left, right]) => [y, [left, right]]));
+  const inside = (x, y) => rows.has(y) && x >= rows.get(y)[0] && x <= rows.get(y)[1];
+  spans.forEach(([y, left, right], i) => {
+    for (let x = left; x <= right; x++) {
+      const edge = bands.has(y)
+        || !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1);
+      put(buf, x, y, edge ? 'k' : ((i % 2) ? 'y' : 'd'));
+    }
+  });
 }
 
 /* 들어 보이는(자랑하기·완성) 비니. 처음엔 7줄짜리 사다리꼴이라
    모자보다 상자에 가까웠습니다 — 한 줄 낮추고, 꼭대기에서 폭이
    확 벌어졌다가(+4) 완만해지게(+2, +2) 해서 둥근 돔으로 만듭니다.
-   아래 세 줄은 접단입니다. engine.js 가 top 부터
-   FINISHED_PIECE_SPAN+1 줄을 잘라 쓰므로, 아래 FINISHED_PIECE_SPAN
-   도 이 높이(6줄)에 맞춰 다시 내줍니다. */
+   넷째 줄이 접단 경계, 그 아래가 접단, 맨 아랫줄이 밑단 테두리입니다.
+   engine.js 가 top 부터 FINISHED_PIECE_SPAN+1 줄을 잘라 쓰므로, 아래
+   FINISHED_PIECE_SPAN 도 이 높이(6줄)에 맞춰 다시 내줍니다. */
+const HELD_BEANIE = [[13, 19], [11, 21], [10, 22], [10, 22], [9, 23], [9, 23]];
+const HELD_BEANIE_BAND = 3;
+
 export function finishedPiece(top = 20) {
   const buf = buffer();
-  const spans = [[13, 19], [11, 21], [10, 22], [10, 22], [9, 23], [9, 23]];
-  spans.forEach(([left, right], i) => {
-    const y = top + i;
-    // 맨 위(꼭대기)와 접단 경계만 통짜 테두리로 막습니다.
-    beanieRow(buf, y, left, right, (i % 2) ? 'y' : 'd', i === 0 || i === 4);
-  });
+  const spans = HELD_BEANIE.map(([left, right], i) => [top + i, left, right]);
+  drawBeanie(buf, spans, new Set([top + HELD_BEANIE_BAND]));
   return shift(pad(buf, SIZE, WIDTH));
 }
 
@@ -255,26 +255,26 @@ export function finishedPiece(top = 20) {
    덮도록 했습니다 — 한 줄이라도 좁으면 머리 외곽선이 모자 밖으로
    삐져나옵니다. 귀는 머리보다 먼저(뒤에) 그려지므로 모자 위로
    그대로 솟아 있습니다. */
-/* [행, 왼쪽, 오른쪽, 통짜 테두리 여부]. 머리가 시작하는 y10 부터는
+/* [행, 왼쪽, 오른쪽]. 머리가 시작하는 y10 부터는
    머리 실루엣과 같거나 한 칸 넓어야 머리 외곽선이 모자 밖으로
-   삐져나오지 않습니다. 그 위 두 줄(y8~9)은 머리가 없는 자리라
-   자유롭게 좁혀서 꼭대기를 둥글렸습니다. */
+   삐져나오지 않습니다. 그 위 한 줄(y9)은 머리가 없는 자리라 좁혀서
+   꼭대기를 둥글렸습니다 — 처음엔 y8 까지 두 줄을 얹었다가 쓴 모자가
+   너무 높아 보여 맨 윗단을 뺐습니다. */
 const BEANIE_SPANS = [
-  [8, 13, 19, true], // 둥근 꼭대기
-  [9, 11, 21],
+  [9, 11, 21], // 둥근 꼭대기
   [10, 10, 22], // 머리(x11~21)보다 한 칸씩 넓게 — 모자 천의 두께
   [11, 9, 23],
   [12, 8, 24],
   [13, 7, 25],
-  [14, 6, 26, true], // 접단 경계
+  [14, 6, 26], // 접단 경계 (WORN_BEANIE_BAND)
   [15, 6, 26],
   [16, 5, 27],
-  // 접단 아래 테두리. 이게 없으면 모자 밑단이 얼굴 털과 바로 맞닿아
-  // 윤곽 없이 색만 바뀐 것처럼 보입니다 — 바로 아래(y18)가 눈이라
-  // 모자는 여기서 끝내야 해서, 마지막 줄 자체를 테두리로 씁니다.
-  [17, 5, 27, true]
+  // 바로 아래(y18)가 눈이라 여기서 끝납니다. 마지막 줄은 바깥과 맞닿아
+  // 자동으로 통째 테두리가 되어, 밑단이 얼굴 털과 바로 섞이지 않습니다.
+  [17, 5, 27]
 ];
-export const WORN_SPAN = [8, 17];
+const WORN_BEANIE_BAND = 14;
+export const WORN_SPAN = [9, 17];
 
 // 비니는 6줄이라 단수달 목도리(8줄)보다 얕습니다. engine.js 가
 // top + SPAN + 1 까지 잘라 줄무늬를 입히므로 그 높이에 맞춥니다.
@@ -287,11 +287,14 @@ export const FINISHED_PIECE_SPAN = 4;
 // 손과 팔이 둥근 머리 부분을 덮어 모자가 사다리꼴로 보입니다.
 export const SPREAD_PAWS = { lx: 6, rx: 22, dy: 3 };
 
+// 완성 연출(반짝임이 터진 뒤)부터 모자를 자랑하기처럼 챙을 잡고 들어
+// 올립니다. 평소 손 자리(PAWS_REST)는 모자의 둥근 머리 줄에 겹쳐서
+// 손이 모자 옆 테두리를 덮어 모양이 깨졌습니다.
+export const HOLD_PIECE_UP = true;
+
 export function wornScarf() {
   const buf = buffer();
-  BEANIE_SPANS.forEach(([y, left, right, edge], i) => {
-    beanieRow(buf, y, left, right, (i % 2) ? 'y' : 'd', edge);
-  });
+  drawBeanie(buf, BEANIE_SPANS, new Set([WORN_BEANIE_BAND]));
   return padR(buf);
 }
 export function sparkles(frame) { return adapt(otterSparkles(frame)); }
@@ -353,7 +356,7 @@ export const BODY = {
   f: '#d9637e', // 볼터치·귀 안쪽 포인트
   m: '#a85a6a', // 코·입
   p: '#fdf1f2', // 앞발
-  // 반쯤 감은 눈꺼풀(annoyed). 외곽선(o)을 쓰면 갈색기가 돌아 분홍
+  // 반쯤 감은 눈꺼풀(annoyed)과 코. 외곽선(o)을 쓰면 갈색기가 돌아 분홍
   // 얼굴에서 저 혼자 칙칙해 보여서, 볼터치와 같은 계열의 자주입니다.
   v: '#9c4f66'
 };

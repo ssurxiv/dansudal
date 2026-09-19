@@ -235,11 +235,15 @@ const POSES = {
     // 완성되는 순간(반짝임이 한꺼번에 터지는 여기)에 실뭉치도 함께
     // 치웁니다 — 다 떴으니 더 쓸 일이 없는 실뭉치를 계속 바닥에
     // 그려두는 게 어색해서, 이미 있는 "짜잔" 전환 프레임에 얹었습니다.
+    // 완성품이 처음 나타나는 순간의 손. 단수달은 목도리를 평소 손 그대로
+    // 가슴께에 쥐지만, 코토키의 비니는 평소 손이 둥근 머리 부분에 얹혀
+    // 테두리를 덮어버려서 자랑하기처럼 챙을 잡고 들어 올립니다(팩이 정함).
+    const hands = c.S.HOLD_PIECE_UP ? spreadHold(c, 20) : [restPaws(c)];
     return {
       behind: [],
       front: [
         ...pieceLayers(c, 20),
-        restPaws(c),
+        ...hands,
         [frame === 3 ? c.S.sparkleBurst() : c.S.sparkles(frame), c.S.SPARK]
       ]
     };
