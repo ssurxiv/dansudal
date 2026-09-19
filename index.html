@@ -38,10 +38,9 @@
     --rabbit-paper: #fdf7f6;
     --rabbit-card: #f6e8e6;
     --rabbit-line: #ecd8d5;
-    /* 탭 바 밑줄은 어느 탭이 활성이냐가 아니라 "지금 보고 있는 페이지"
-       를 따라갑니다 — 단수달의 따뜻한 회갈색 줄을 코토키 분홍 화면에
-       그대로 쓰면 그 줄만 누렇게 떠 보였습니다. */
-    --tabs-line: #e3d6d2;
+    /* 코토키 페이지에서 비활성 단수달 탭 글씨. 분홍 화면에서 갈색 글씨가
+       튀지 않도록 연한 회색으로 가라앉힙니다. */
+    --tab-dim: #bcb2b4;
   }
   /* 코토키(코바늘+토끼) 컨셉 — 따뜻한 갈색 톤(단수달) 대신 훨씬
      차분한(채도를 낮춘) 분홍 톤. 활성 탭에 따라 app.js 가
@@ -55,7 +54,6 @@
     --line: var(--rabbit-line);
     --yarn: #b5707e;
     --stage-bg: #fffcfb;
-    --tabs-line: #e8d3ce;
   }
   * { box-sizing: border-box; }
   body {
@@ -83,15 +81,15 @@
   .bottom-bar-inner { max-width: 420px; margin: 0 auto; }
   .bottom-bar footer { margin-top: 0; padding-top: 0; border-top: none; }
 
-  /* 컨셉 전환 탭 — 폴더 인덱스처럼, 활성 탭만 아래쪽 화면(--paper)과
-     이어져 보이게 하고 비활성 탭은 --card 톤으로 살짝 가라앉힙니다.
-     탭 바 밑줄(border-bottom)이 활성 탭 자리에서만 끊기도록, 활성
-     탭에 카드와 같은 배경 + 좌우/위 테두리 + 투명 밑줄을 줍니다. */
+  /* 컨셉 전환 탭 — 폴더 인덱스처럼, 활성 탭만 아래쪽 화면과 이어져
+     보이게 합니다. 선(탭 테두리·탭 바 밑줄)은 모두 지금 보고 있는
+     페이지의 --line 하나로 통일하고, 활성 탭은 페이지 배경(--paper)으로
+     채워 밑줄 자리를 같은 색으로 덮어 내용과 이어 붙입니다. */
   .concept-tabs {
     display: flex;
     gap: 4px;
     margin-bottom: 16px;
-    border-bottom: 1px solid var(--tabs-line);
+    border-bottom: 1px solid var(--line);
   }
   .concept-tab {
     flex: none;
@@ -102,36 +100,26 @@
     font: inherit;
     font-weight: 600;
     background: #fff;
-    border: 1.5px solid;
+    border: 1.5px solid var(--line);
     border-radius: 10px 10px 0 0;
     cursor: pointer;
   }
-  /* 탭은 지금 어느 컨셉이 활성인지와 무관하게 항상 자기 브랜드 색
-     윤곽선 + 흰 배경입니다 — 위 :root 의 고정 --otter-*/--rabbit-*
-     변수 참조. 활성 탭만 아래쪽 테두리를 지금 페이지 배경(--paper,
-     활성 컨셉에 따라 자동으로 바뀜)과 같은 색으로 칠해 내용과
-     이어져 보이게 합니다. */
-  .concept-tab[data-concept="otter"] {
-    color: var(--otter-muted);
-    border-color: var(--otter-muted);
-  }
-  .concept-tab[data-concept="otter"]:hover { color: var(--otter-ink); border-color: var(--otter-ink); }
-  .concept-tab[data-concept="otter"][aria-selected="true"] {
-    color: var(--otter-ink);
-    border-color: var(--otter-ink);
+  .concept-tab[aria-selected="true"] {
+    background: var(--paper);
     border-bottom-color: var(--paper);
+    z-index: 1;
   }
-  .concept-tab[data-concept="rabbit"] {
-    color: var(--rabbit-muted);
-    border-color: var(--rabbit-muted);
-  }
-  .concept-tab[data-concept="rabbit"]:hover { color: var(--rabbit-ink); border-color: var(--rabbit-ink); }
-  .concept-tab[data-concept="rabbit"][aria-selected="true"] {
-    color: var(--rabbit-ink);
-    border-color: var(--rabbit-ink);
-    border-bottom-color: var(--paper);
-  }
-  .concept-tab[aria-selected="true"] { z-index: 1; }
+  /* 글씨는 각자 브랜드 색 — 활성이면 진하게, 비활성이면 연하게. 다만
+     코토키 페이지의 단수달 탭은 갈색이 분홍 화면에서 튀어서 회색으로
+     가라앉힙니다(--tab-dim). 올려두면 제 색이 돌아옵니다. */
+  .concept-tab[data-concept="otter"] { color: var(--otter-muted); }
+  .concept-tab[data-concept="rabbit"] { color: var(--rabbit-muted); }
+  :root[data-concept="rabbit"] .concept-tab[data-concept="otter"] { color: var(--tab-dim); }
+  .concept-tab[data-concept="otter"][aria-selected="true"],
+  .concept-tab[data-concept="otter"]:hover,
+  :root[data-concept="rabbit"] .concept-tab[data-concept="otter"]:hover { color: var(--otter-ink); }
+  .concept-tab[data-concept="rabbit"][aria-selected="true"],
+  .concept-tab[data-concept="rabbit"]:hover { color: var(--rabbit-ink); }
   .concept-tab:focus-visible { outline: 2px solid var(--yarn); outline-offset: 2px; }
 
   .concept-panel[hidden] { display: none; }
