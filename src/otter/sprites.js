@@ -1,5 +1,5 @@
 /*!
- * 단수달 (Knitting Companion) — 스프라이트 데이터
+ * 함뜨마을 동물 친구들 — 단수달 스프라이트 데이터
  * Copyright (c) 2026 @tteoboja_0. All rights reserved.
  * 이 파일의 픽셀아트 데이터는 저작권 보호 대상입니다.
  * 무단 추출·재사용·재배포를 금합니다.

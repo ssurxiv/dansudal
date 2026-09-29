@@ -1,5 +1,5 @@
 /*!
- * 코토키 (Crochet Companion)
+ * 함뜨마을 동물 친구들 — 코토키 진입점
  * Copyright (c) 2026 @tteoboja_0. All rights reserved.
  * https://instagram.com/tteoboja_0
  *
@@ -23,6 +23,6 @@ mountCompanionApp({
   cellKit: carrotCell,
   wearIcon: '🧢', // 코토키의 완성품은 목도리가 아니라 비니입니다
 
-  bannerText: '코토키 — © 2026 @tteoboja_0\n무단 재배포를 금합니다. LICENSE.txt 참조.',
+  bannerText: '함뜨마을 동물 친구들 · 코토키 — © 2026 @tteoboja_0\n무단 재배포를 금합니다. LICENSE.txt 참조.',
   bannerColor: '#d97b8d'
 });

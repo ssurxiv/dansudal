@@ -1,5 +1,5 @@
 /*!
- * 단수달 (Knitting Companion)
+ * 함뜨마을 동물 친구들 — 단수달 진입점
  * Copyright (c) 2026 @tteoboja_0. All rights reserved.
  * https://instagram.com/tteoboja_0
  *
@@ -21,6 +21,6 @@ mountCompanionApp({
   zoomTarget: document.documentElement,
   sprites: S,
   cellKit: fishCell,
-  bannerText: `단수달 — © 2026 ${S.SIGNATURE}\n무단 재배포를 금합니다. LICENSE.txt 참조.`,
+  bannerText: `함뜨마을 동물 친구들 · 단수달 — © 2026 ${S.SIGNATURE}\n무단 재배포를 금합니다. LICENSE.txt 참조.`,
   bannerColor: '#3f7266'
 });

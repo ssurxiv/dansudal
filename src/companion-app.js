@@ -1,5 +1,5 @@
 /*!
- * 단수달 / 코토키 — 공용 앱 셸
+ * 함뜨마을 동물 친구들 — 공용 앱 셸
  * Copyright (c) 2026 @tteoboja_0. All rights reserved.
  * https://instagram.com/tteoboja_0
  *
