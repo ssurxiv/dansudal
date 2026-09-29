@@ -1,5 +1,5 @@
 /*!
- * 단수달 — 진행 그리드 칸(물고기)
+ * 함뜨마을 동물 친구들 — 단수달 진행 그리드 칸(물고기)
  * Copyright (c) 2026 @tteoboja_0. All rights reserved.
  * https://instagram.com/tteoboja_0
  *

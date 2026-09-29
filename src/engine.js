@@ -1,5 +1,5 @@
 /*!
- * 단수달 (Knitting Companion) — 엔진
+ * 함뜨마을 동물 친구들 — 엔진
  * Copyright (c) 2026 @tteoboja_0. All rights reserved.
  * https://instagram.com/tteoboja_0
  */

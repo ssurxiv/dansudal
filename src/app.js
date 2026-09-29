@@ -1,5 +1,5 @@
 /*!
- * 단수달 / 코토키 — 컨셉 전환 골격
+ * 함뜨마을 동물 친구들 — 컨셉 전환 골격
  * Copyright (c) 2026 @tteoboja_0. All rights reserved.
  * https://instagram.com/tteoboja_0
  *
@@ -17,8 +17,8 @@ const panels = {
 const hintEl = document.getElementById('shortcutHint');
 
 const TITLES = {
-  otter: '단수달 🦦',
-  rabbit: '코토키 🐰'
+  otter: '단수달 🦦 · 함뜨마을 동물 친구들',
+  rabbit: '코토키 🐰 · 함뜨마을 동물 친구들'
 };
 // 두 컨셉의 조작 문구는 완전히 같습니다(단수달과 동일하게 유지).
 const HINT_TEXT = '스페이스바로 한 단 추가, 백스페이스로 한 단 풀기, W로 실 감기';

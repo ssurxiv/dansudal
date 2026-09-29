@@ -1,3 +1,6 @@
 .DS_Store
 Thumbs.db
 node_modules/
+
+# 나만 보는 개발 노트(README 에서 뺀 코드 구조·실행법 등)
+DEV-NOTES.md

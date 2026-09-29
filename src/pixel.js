@@ -1,5 +1,5 @@
 /*!
- * 단수달 (Knitting Companion)
+ * 함뜨마을 동물 친구들 — 픽셀 도구
  * Copyright (c) 2026 @tteoboja_0. All rights reserved.
  * 무단 복제 및 재배포를 금합니다. 자세한 내용은 LICENSE.txt 참조.
  * https://instagram.com/tteoboja_0

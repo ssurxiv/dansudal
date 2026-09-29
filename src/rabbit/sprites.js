@@ -1,5 +1,5 @@
 /*!
- * 코토키 (Crochet Companion) — 스프라이트 데이터
+ * 함뜨마을 동물 친구들 — 코토키 스프라이트 데이터
  * Copyright (c) 2026 @tteoboja_0. All rights reserved.
  * https://instagram.com/tteoboja_0
  *
