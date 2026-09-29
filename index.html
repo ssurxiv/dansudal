@@ -524,12 +524,48 @@
   @media (prefers-reduced-motion: reduce) {
     .fill { transition: none; }
   }
-  /* 좁은 화면에서는 통계를 한 줄에 하나씩. "쓴 볼 수 / 보유 볼 수" 는
-     버튼 셋 + 숫자 둘 + 슬래시가 한 줄에 들어가야 해서, 카드를 둘로
-     쪼개면 대략 445px 아래부터 폭이 모자랍니다(본문이 420px 로 고정
-     되는 지점까지 여유를 둬 480px 로 잡았습니다). */
+  /* 좁은 화면(휴대폰)에서도 두 통계 카드는 좌우로 나란히 둡니다 — 한때
+     한 줄에 하나씩 쌓았더니 페이지가 길어져 버튼까지 스크롤해야
+     했습니다. 다만 반쪽 카드에는 "쓴 볼 수 / 보유 볼 수" 한 줄(버튼 셋 +
+     숫자 둘 + 슬래시)이 안 들어가서(대략 445px 아래, 본문이 420px 로
+     고정되는 지점까지 여유를 둬 480px), 카드 안에서 숫자는 윗줄에 두고
+     그 숫자를 고치는 버튼은 바로 아랫줄 그 숫자 밑으로 내립니다.
+     슬래시 양쪽을 똑같이 1fr 두 칸씩으로 나눠 두 숫자가 슬래시를
+     사이에 두고 대칭이 되게 하고(−·+ 는 왼쪽 두 칸에 하나씩), 칸 전체는
+     내용 폭만큼만 잡아 가운데 둡니다. 칸마다 버튼 한 개 폭(24px)은
+     꼭 잡아서, −·+ 가 없는 총 단수 카드도 볼 수 카드와 숫자 간격이
+     똑같아지게 합니다. 320px 폰에서도 들어갑니다. */
   @media (max-width: 480px) {
-    .stats { grid-template-columns: 1fr; }
+    .stat { padding: 8px 6px; }
+    .stat dd {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(24px, 1fr)) auto repeat(2, minmax(24px, 1fr));
+      grid-template-areas:
+        "num num sep total total"
+        "dec inc .   edit  edit";
+      gap: 4px;
+      width: max-content;
+      margin: 2px auto 0;
+    }
+    .stat dd span.stat-num { grid-area: num; justify-self: center; }
+    .stat-sep { grid-area: sep; }
+    .stat dd input.stat-num { grid-area: total; justify-self: center; }
+    .stat-dec { grid-area: dec; justify-self: end; }
+    .stat-inc { grid-area: inc; justify-self: start; }
+    .stat-edit { grid-area: edit; justify-self: center; }
+  }
+  /* 휴대폰처럼 화면이 좁거나 낮으면 아래 안내 바를 화면에 붙여두지
+     않고 페이지 맨 끝에 둡니다. 붙여두면 바가 화면 아래 4분의 1쯤을
+     덮어서 첫 화면에 동작 버튼이 하나도 안 보였습니다. (넓은 화면에서
+     붙여두는 건 실 창고·알림을 여닫을 때 안내문이 들썩이지 않게 하려는
+     것인데, 휴대폰에선 어차피 페이지 끝이라 들썩여도 안 보입니다.) */
+  @media (max-width: 480px), (max-height: 560px) {
+    body { padding-bottom: 20px; }
+    .bottom-bar { position: static; padding: 12px 0 0; background: none; }
+  }
+  /* 키보드 없이 터치로만 쓰는 기기에는 단축키 안내가 필요 없습니다. */
+  @media (hover: none) and (pointer: coarse) {
+    #shortcutHint { display: none; }
   }
 </style>
 </head>
@@ -582,23 +618,24 @@
     <div class="stat">
       <dt>뜬 단수/총 단수</dt>
       <dd>
-        <span id="rows" class="stat-num">0</span> /
+        <span id="rows" class="stat-num">0</span>
+        <span class="stat-sep">/</span>
         <!-- 목표 단수는 잘못 건드리면 진행 표시가 통째로 흔들리는 값이라
              평소엔 잠가두고, 옆 버튼을 눌러야 고칠 수 있습니다. -->
         <input type="number" id="target" class="stat-num" value="20" min="1" max="999" required readonly />
-        <button id="targetEdit" type="button" aria-label="총 단수 수정">✎</button>
+        <button id="targetEdit" class="stat-edit" type="button" aria-label="총 단수 수정">✎</button>
       </dd>
     </div>
     <div class="stat">
       <dt>쓴 볼 수/보유 볼 수</dt>
       <dd>
-        <button id="ballMinus" type="button" aria-label="쓴 볼 수 줄이기">−</button>
+        <button id="ballMinus" class="stat-dec" type="button" aria-label="쓴 볼 수 줄이기">−</button>
         <span id="usedBall" class="stat-num">0</span>
-        <button id="ballPlus" type="button" aria-label="쓴 볼 수 늘리기">+</button>
-        /
+        <button id="ballPlus" class="stat-inc" type="button" aria-label="쓴 볼 수 늘리기">+</button>
+        <span class="stat-sep">/</span>
         <!-- 보유 볼 수도 총 단수와 같이 평소엔 잠가둡니다. -->
         <input type="number" id="totalBall" class="stat-num" min="0" max="999" placeholder="-" readonly />
-        <button id="totalBallEdit" type="button" aria-label="보유 볼 수 수정">✎</button>
+        <button id="totalBallEdit" class="stat-edit" type="button" aria-label="보유 볼 수 수정">✎</button>
       </dd>
     </div>
   </dl>
@@ -678,21 +715,22 @@
     <div class="stat">
       <dt>뜬 단수/총 단수</dt>
       <dd>
-        <span id="r-rows" class="stat-num">0</span> /
+        <span id="r-rows" class="stat-num">0</span>
+        <span class="stat-sep">/</span>
         <input type="number" id="r-target" class="stat-num" value="20" min="1" max="999" required readonly />
-        <button id="r-targetEdit" type="button" aria-label="총 단수 수정">✎</button>
+        <button id="r-targetEdit" class="stat-edit" type="button" aria-label="총 단수 수정">✎</button>
       </dd>
     </div>
     <div class="stat">
       <dt>쓴 볼 수/보유 볼 수</dt>
       <dd>
-        <button id="r-ballMinus" type="button" aria-label="쓴 볼 수 줄이기">−</button>
+        <button id="r-ballMinus" class="stat-dec" type="button" aria-label="쓴 볼 수 줄이기">−</button>
         <span id="r-usedBall" class="stat-num">0</span>
-        <button id="r-ballPlus" type="button" aria-label="쓴 볼 수 늘리기">+</button>
-        /
+        <button id="r-ballPlus" class="stat-inc" type="button" aria-label="쓴 볼 수 늘리기">+</button>
+        <span class="stat-sep">/</span>
         <!-- 보유 볼 수도 총 단수와 같이 평소엔 잠가둡니다. -->
         <input type="number" id="r-totalBall" class="stat-num" min="0" max="999" placeholder="-" readonly />
-        <button id="r-totalBallEdit" type="button" aria-label="보유 볼 수 수정">✎</button>
+        <button id="r-totalBallEdit" class="stat-edit" type="button" aria-label="보유 볼 수 수정">✎</button>
       </dd>
     </div>
   </dl>
