@@ -38,6 +38,13 @@
     --rabbit-paper: #fdf7f6;
     --rabbit-card: #f6e8e6;
     --rabbit-line: #ecd8d5;
+    /* 카냥이 — 털색(회청색, 러시안블루) 계열의 차가운 톤. 갈색·분홍과
+       겹치지 않아 세 탭이 한눈에 갈립니다. */
+    --cat-ink: #2f3442;
+    --cat-muted: #7b8396;
+    --cat-paper: #f5f6f9;
+    --cat-card: #e8ebf1;
+    --cat-line: #d5dae4;
     /* 코토키 페이지에서 비활성 단수달 탭 글씨. 분홍 화면에서 갈색 글씨가
        튀지 않도록 연한 회색으로 가라앉힙니다. */
     --tab-dim: #bcb2b4;
@@ -54,6 +61,15 @@
     --line: var(--rabbit-line);
     --yarn: #b5707e;
     --stage-bg: #fffcfb;
+  }
+  :root[data-concept="cat"] {
+    --ink: var(--cat-ink);
+    --muted: var(--cat-muted);
+    --paper: var(--cat-paper);
+    --card: var(--cat-card);
+    --line: var(--cat-line);
+    --yarn: #5f6f92;
+    --stage-bg: #fcfcfd;
   }
   * { box-sizing: border-box; }
   body {
@@ -120,6 +136,9 @@
   :root[data-concept="rabbit"] .concept-tab[data-concept="otter"]:hover { color: var(--otter-ink); }
   .concept-tab[data-concept="rabbit"][aria-selected="true"],
   .concept-tab[data-concept="rabbit"]:hover { color: var(--rabbit-ink); }
+  .concept-tab[data-concept="cat"] { color: var(--cat-muted); }
+  .concept-tab[data-concept="cat"][aria-selected="true"],
+  .concept-tab[data-concept="cat"]:hover { color: var(--cat-ink); }
   .concept-tab:focus-visible { outline: 2px solid var(--yarn); outline-offset: 2px; }
 
   .concept-panel[hidden] { display: none; }
@@ -127,6 +146,7 @@
      이 서브트리에서만 값을 가집니다 — 지금은 확대/축소 버튼이 없어
      항상 1이지만, 나중에 붙이면 이 선언 하나로 서로 안 섞입니다. */
   #panel-rabbit { --zoom: 1; }
+  #panel-cat { --zoom: 1; }
 
   .page-head {
     display: flex;
@@ -511,6 +531,173 @@
   .note-form > .note-actions { display: flex; gap: 8px; }
   .note-form > .note-actions button { flex: none; min-width: 64px; }
 
+  /* ── 카냥이 (배색·방안 도안) ─────────────────────────────── */
+  /* 이 패널의 여러 덩어리가 display:flex/grid 라 hidden 속성의 기본
+     display:none 을 덮어씁니다 — 패널 안에서는 hidden 이 늘 이기게. */
+  #panel-cat [hidden] { display: none !important; }
+
+  /* 도안 그리기 / 뜨기 — 한 덩어리 토글. 고른 쪽만 카드색으로 채웁니다. */
+  .c-modes {
+    display: flex;
+    margin: 16px 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .c-modes button {
+    flex: 1 1 0;
+    min-width: 0;
+    border: none;
+    border-radius: 0;
+    color: var(--muted);
+  }
+  .c-modes button + button { border-left: 1px solid var(--line); }
+  .c-modes button[aria-pressed="true"] { background: var(--card); color: var(--ink); }
+
+  /* 도구 셋은 폭을 나눠 갖고 되돌리기·다시는 작은 네모로 — 휴대폰에서도
+     한 줄에 들어갑니다(줄바꿈되면 '다시'만 아랫줄에 홀로 남았습니다). */
+  .c-tools { display: flex; gap: 6px; margin-bottom: 10px; }
+  .c-tools button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 8px 4px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .c-tools #c-undo,
+  .c-tools #c-redo { flex: none; width: 38px; padding: 0; }
+  .c-tools button[aria-pressed="true"] {
+    border-color: var(--yarn);
+    color: var(--yarn);
+    background: var(--card);
+    box-shadow: inset 0 0 0 1px var(--yarn);
+  }
+  .c-tools-gap { flex: 0 0 4px; }
+
+  /* 색 고르기 — 실 창고와 같은 실타래 단추를 그대로 씁니다. 맨 앞은
+     바탕(안 칠한 칸)이라 네모로, 맨 끝은 새 색 넣기. */
+  .c-palette { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-bottom: 10px; }
+  .c-bg-wrap { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+  .c-bg-swatch { border-radius: 8px; background-image: none; }
+  .c-bg-label { font-size: 12px; color: var(--muted); }
+  .c-add-swatch {
+    background: #fff;
+    background-image: none;
+    border-style: dashed;
+    border-color: var(--muted);
+    color: var(--muted);
+    font-size: 17px;
+    line-height: 1;
+  }
+  .c-color-editor {
+    display: grid;
+    gap: 8px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  .c-color-head { display: flex; align-items: center; gap: 10px; }
+  .c-color-preview {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid var(--ink);
+  }
+  .c-hex { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .c-hex input {
+    width: 6.5em;
+    padding: 6px 8px;
+    font: inherit;
+    color: var(--ink);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-variant-numeric: tabular-nums;
+  }
+  .c-hex input[aria-invalid="true"] { border-color: #c45b5b; }
+  .c-slider {
+    display: grid;
+    grid-template-columns: 1.2em 1fr 2.4em;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .c-slider input[type="range"] { width: 100%; accent-color: var(--yarn); }
+  .c-slider output { text-align: right; font-variant-numeric: tabular-nums; }
+  .c-color-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .c-color-actions button { min-width: 0; padding: 8px 10px; font-size: 13px; }
+
+  /* 도안. 넓은 도안은 이 칸 안에서만 가로로 밀립니다. 그리는 동안엔
+     손가락이 화면을 끌지 않게 touch-action 을 막고, 뜨기 화면에선
+     톡 누르기만 하니 스크롤을 돌려줍니다(main.js 가 knit 클래스로 전환). */
+  .c-chart-wrap {
+    overflow-x: auto;
+    background: var(--stage-bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 8px 0;
+    margin-bottom: 12px;
+  }
+  .c-chart { display: block; margin: 0 auto; touch-action: none; cursor: crosshair; }
+  .c-chart.knit { touch-action: manipulation; cursor: pointer; }
+
+  /* 지금 단 읽기 — 배색 순서를 도안과 같은 방향으로 늘어놓습니다
+     (오른쪽부터 읽는 단은 칩도 오른쪽부터). */
+  .c-reading {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+  }
+  .c-reading-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 14px; }
+  .c-reading-head span { color: var(--muted); font-size: 13px; }
+  .c-progress-text { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .c-runs { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  .c-runs.rtl { flex-direction: row-reverse; }
+  .c-run {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px 3px 4px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .c-run.done { opacity: 0.45; text-decoration: line-through; }
+  .c-run.current { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+  .c-dot {
+    display: inline-block;
+    flex: none;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid var(--ink);
+    border-radius: 50%;
+    vertical-align: -2px;
+  }
+  .speech-bubble .c-dot { width: 12px; height: 12px; margin: 0 4px; }
+
+  /* 뜨기 버튼 넷은 2×2 — 앞으로(떴어요)가 윗줄, 뒤로(풀기)가 아랫줄. */
+  .c-knit-controls { display: grid; grid-template-columns: 1fr 1fr; }
+  .c-knit-controls button { min-width: 0; }
+  .c-style { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 13px; margin-bottom: 12px; }
+  .c-style label { display: flex; align-items: center; gap: 4px; }
+  .c-style .hint { margin: 0; }
+  #c-restart { color: var(--muted); }
+
+  .c-size { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 16px; }
+  .c-size label { display: flex; align-items: center; gap: 4px; }
+  .c-size input[type="number"] { width: 4.2em; padding: 6px; }
+  .c-size button { flex: none; min-width: 0; padding: 8px 12px; font-size: 13px; }
+  #c-clear { color: var(--muted); margin-left: auto; }
+
   .hint { font-size: 13px; color: var(--muted); margin: 0 0 4px; }
   footer {
     margin-top: 28px;
@@ -587,6 +774,8 @@
           data-concept="otter" aria-selected="true" aria-controls="panel-otter">단수달 🦦</button>
   <button type="button" class="concept-tab" role="tab" id="tab-rabbit"
           data-concept="rabbit" aria-selected="false" aria-controls="panel-rabbit">코토키 🐰</button>
+  <button type="button" class="concept-tab" role="tab" id="tab-cat"
+          data-concept="cat" aria-selected="false" aria-controls="panel-cat">카냥이 🐱</button>
 </nav>
 <main>
 <section id="panel-otter" class="concept-panel" role="tabpanel" aria-labelledby="tab-otter">
@@ -780,6 +969,94 @@
     </form>
   </div>
 </section>
+
+<section id="panel-cat" class="concept-panel" role="tabpanel" aria-labelledby="tab-cat" hidden>
+  <div class="page-head">
+    <h1>카냥이 🐱</h1>
+    <div class="zoom-controls">
+      <button id="c-zoomOut" type="button" aria-label="캐릭터 작게 보기">−</button>
+      <button id="c-zoomIn" type="button" aria-label="캐릭터 크게 보기">+</button>
+    </div>
+  </div>
+
+  <div class="stage-wrap">
+    <div class="speech-bubble kind-chat" id="c-bubble">대기 중</div>
+    <canvas id="c-stage" class="pixel-stage" width="33" height="44"
+            aria-label="발바닥으로 도안을 칠하는 고양이 캐릭터"></canvas>
+    <p id="c-status" class="sr-only" aria-live="polite">대기 중</p>
+  </div>
+
+  <div class="c-modes" role="group" aria-label="화면 고르기">
+    <button type="button" id="c-modeEdit" aria-pressed="true">✏️ 도안 그리기</button>
+    <button type="button" id="c-modeKnit" aria-pressed="false">🧶 뜨기</button>
+  </div>
+
+  <div id="c-editTop">
+    <div class="c-tools" role="group" aria-label="도구">
+      <button type="button" id="c-toolBrush" aria-pressed="true">🐾 칠하기</button>
+      <button type="button" id="c-toolRect" aria-pressed="false">⬜ 사각형</button>
+      <button type="button" id="c-toolErase" aria-pressed="false">🧽 지우개</button>
+      <span class="c-tools-gap"></span>
+      <button type="button" id="c-undo" aria-label="되돌리기" title="되돌리기">↶</button>
+      <button type="button" id="c-redo" aria-label="다시 하기" title="다시 하기">↷</button>
+    </div>
+    <div class="c-palette" id="c-palette" role="group" aria-label="칠할 색"></div>
+    <div class="c-color-editor" id="c-colorEditor" hidden>
+      <div class="c-color-head">
+        <span class="c-color-preview" id="c-colorPreview"></span>
+        <label class="c-hex">HEX <input type="text" id="c-hex" maxlength="7" spellcheck="false" autocomplete="off" /></label>
+      </div>
+      <label class="c-slider"><span>R</span><input type="range" id="c-r" min="0" max="255" /><output id="c-rOut" for="c-r">0</output></label>
+      <label class="c-slider"><span>G</span><input type="range" id="c-g" min="0" max="255" /><output id="c-gOut" for="c-g">0</output></label>
+      <label class="c-slider"><span>B</span><input type="range" id="c-b" min="0" max="255" /><output id="c-bOut" for="c-b">0</output></label>
+      <div class="c-color-actions">
+        <button type="button" id="c-colorAdd">🎨 팔레트에 넣기</button>
+        <button type="button" id="c-colorBg">바탕색으로</button>
+        <button type="button" id="c-colorRemove">고른 색 빼기</button>
+      </div>
+    </div>
+    <p class="hint">칸을 누르거나 끌어서 칠해요. 사각형은 끌어서 영역을 잡으면 한 번에 채워요.</p>
+  </div>
+
+  <div id="c-knitTop" class="c-reading" hidden>
+    <div class="c-reading-head">
+      <strong id="c-rowLabel">1단</strong>
+      <span id="c-rowDir">← 오른쪽부터</span>
+      <span id="c-progressText" class="c-progress-text">0 / 20단</span>
+    </div>
+    <ol class="c-runs" id="c-runs" aria-label="이 단의 배색 순서"></ol>
+  </div>
+
+  <div class="c-chart-wrap" id="c-chartWrap">
+    <canvas id="c-chart" class="c-chart" role="img" aria-label="배색 도안"></canvas>
+  </div>
+
+  <div id="c-knitBottom" hidden>
+    <div class="controls c-knit-controls">
+      <button id="c-nextRun" type="button">🐾 한 구간 떴어요</button>
+      <button id="c-nextRow" type="button">🧶 한 단 떴어요</button>
+      <button id="c-backRun" type="button">↩️ 한 구간 풀기</button>
+      <button id="c-backRow" type="button">✂️ 한 단 풀기</button>
+    </div>
+    <div class="c-style" role="radiogroup" aria-label="뜨는 방식">
+      <span class="hint">뜨는 방식</span>
+      <label><input type="radio" name="c-style" value="flat" checked /> 평면뜨기 (왕복)</label>
+      <label><input type="radio" name="c-style" value="round" /> 원통뜨기</label>
+    </div>
+    <p class="hint">도안 칸을 누르면 거기까지 뜬 걸로 체크해요.</p>
+    <div class="controls">
+      <button id="c-restart" type="button">🔁 처음부터 다시 뜨기</button>
+    </div>
+  </div>
+
+  <div id="c-editBottom" class="c-size">
+    <label>가로 <input type="number" id="c-width" min="2" max="60" required /> 코</label>
+    <span aria-hidden="true">×</span>
+    <label>세로 <input type="number" id="c-height" min="2" max="100" required /> 단</label>
+    <button type="button" id="c-resize">크기 바꾸기</button>
+    <button type="button" id="c-clear">🗑️ 새 도안</button>
+  </div>
+</section>
 </main>
 
 <div class="bottom-bar">
@@ -796,6 +1073,7 @@
 
 <script type="module" src="./src/otter/main.js"></script>
 <script type="module" src="./src/rabbit/main.js"></script>
+<script type="module" src="./src/cat/main.js"></script>
 <script type="module" src="./src/app.js"></script>
 </body>
 </html>
