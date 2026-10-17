@@ -80,7 +80,13 @@ function loadSaved() {
   }
 }
 
-const chart = new Chart({ width: 20, height: 20, bg: '#ffffff', palette: STASH.map((s) => s.color) });
+// 기본 팔레트는 실 창고 색에서 바탕(흰색)과 같은 화이트만 빼 8색 — 팔레트 큐 크기.
+const chart = new Chart({
+  width: 20,
+  height: 20,
+  bg: '#ffffff',
+  palette: STASH.map((s) => s.color).filter((c) => c !== '#ffffff')
+});
 const saved = loadSaved();
 if (saved?.chart) chart.restore(saved.chart);
 
@@ -425,16 +431,7 @@ function renderPalette() {
   divider.className = 'stash-divider';
   paletteEl.append(bgWrap, divider);
 
-  chart.palette.forEach((color) => {
-    const selected = !pickingBg && ui.tool !== 'erase' && color === ui.color;
-    const btn = swatch(color, nameOf(color) ?? color);
-    btn.dataset.key = color;
-    btn.classList.toggle('recent', selected);
-    btn.setAttribute('aria-pressed', String(selected));
-    btn.addEventListener('click', () => selectColor(color));
-    paletteEl.append(btn);
-  });
-
+  // 새 색 만들기는 첫 동그라미 — 새 색은 바로 그 옆(맨 앞)에 들어옵니다.
   const add = document.createElement('button');
   add.type = 'button';
   add.className = 'swatch c-add-swatch';
@@ -444,6 +441,16 @@ function renderPalette() {
   add.setAttribute('aria-expanded', String(editorTarget === 'new'));
   add.addEventListener('click', () => openEditor('new'));
   paletteEl.append(add);
+
+  chart.palette.forEach((color) => {
+    const selected = !pickingBg && ui.tool !== 'erase' && color === ui.color;
+    const btn = swatch(color, nameOf(color) ?? color);
+    btn.dataset.key = color;
+    btn.classList.toggle('recent', selected);
+    btn.setAttribute('aria-pressed', String(selected));
+    btn.addEventListener('click', () => selectColor(color));
+    paletteEl.append(btn);
+  });
 
   if (focused) paletteEl.querySelector(`[data-key="${focused}"]`)?.focus();
 }
@@ -545,13 +552,12 @@ function closeEditor() {
 $('colorDone').addEventListener('click', closeEditor);
 
 function addDraft() {
-  if (!chart.addColor(draft)) {
-    say('팔레트가 꽉 찼어. 안 쓰는 색을 빼줘.');
-    return;
-  }
+  const { ok, dropped } = chart.addColor(draft);
+  if (!ok) return;
   ui.color = draft;
   ui.tool = 'brush';
-  say('새 색이네. 나쁘지 않아.', { color: draft });
+  if (dropped) say('새 색이네. 대신 제일 오래된', { color: dropped }, '은 뺐어.');
+  else say('새 색이네. 나쁘지 않아.', { color: draft });
   persist();
   refresh();
 }

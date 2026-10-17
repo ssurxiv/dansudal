@@ -20,7 +20,8 @@
  */
 
 export const LIMITS = { minW: 2, maxW: 60, minH: 2, maxH: 100 };
-export const MAX_PALETTE = 24;
+// 팔레트는 최근 색 8개까지만 담는 큐입니다(넘치면 가장 오래된 색이 빠짐).
+export const MAX_PALETTE = 8;
 const MAX_HISTORY = 200;
 const SCHEMA = 1;
 
@@ -196,14 +197,18 @@ export class Chart {
 
   /* ── 색 ───────────────────────────────────────────────── */
 
-  /** 팔레트에 색을 넣습니다. 이미 있으면 그대로 두고, 꽉 찼으면 false. */
+  /**
+   * 팔레트 맨 앞에 색을 넣습니다. 이미 있는 색이면 맨 앞으로 옮기고,
+   * MAX_PALETTE 를 넘치면 가장 오래된(맨 뒤) 색이 빠집니다 — 빠진 색으로
+   * 칠한 칸은 그대로 남습니다.
+   * @returns {{ok: boolean, dropped: string|null}}
+   */
   addColor(hex) {
     const color = normalizeHex(hex);
-    if (!color) return false;
-    if (this.palette.includes(color)) return true;
-    if (this.palette.length >= MAX_PALETTE) return false;
-    this.palette.push(color);
-    return true;
+    if (!color) return { ok: false, dropped: null };
+    this.palette = [color, ...this.palette.filter((c) => c !== color)];
+    const dropped = this.palette.length > MAX_PALETTE ? this.palette.pop() : null;
+    return { ok: true, dropped };
   }
 
   /** 팔레트에서만 뺍니다. 이미 그 색으로 칠한 칸은 그대로 남습니다. */
