@@ -1,9 +1,9 @@
 /*!
- * 함뜨마을 동물 친구들 — 카냥이 캐릭터
+ * 함뜨마을 동물 친구들 — 묘카 캐릭터
  * Copyright (c) 2026 @tteoboja_0. All rights reserved.
  * https://instagram.com/tteoboja_0
  *
- * 카냥이의 자세와 애니메이션만 다룹니다. 도안(chart.js)은 모르고,
+ * 묘카의 자세와 애니메이션만 다룹니다. 도안(chart.js)은 모르고,
  * cat/main.js 가 "칠했다", "되돌렸다", "한 구간 떴다" 같은 일이 생길
  * 때마다 play()/weave() 로 동작을 틀어줍니다. 단수달·코토키의 engine.js
  * 처럼 상태 표 + requestAnimationFrame 한 바퀴 구조지만, 실 보존 같은

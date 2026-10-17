@@ -38,7 +38,7 @@
     --rabbit-paper: #fdf7f6;
     --rabbit-card: #f6e8e6;
     --rabbit-line: #ecd8d5;
-    /* 카냥이 — 털색(회청색, 러시안블루) 계열의 차가운 톤. 갈색·분홍과
+    /* 묘카 — 털색(회청색, 러시안블루) 계열의 차가운 톤. 갈색·분홍과
        겹치지 않아 세 탭이 한눈에 갈립니다. */
     --cat-ink: #2f3442;
     --cat-muted: #7b8396;
@@ -530,7 +530,7 @@
   .note-form > .note-actions { display: flex; gap: 8px; }
   .note-form > .note-actions button { flex: none; min-width: 64px; }
 
-  /* ── 카냥이 (배색·방안 도안) ─────────────────────────────── */
+  /* ── 묘카 (배색·방안 도안) ─────────────────────────────── */
   /* 이 패널의 여러 덩어리가 display:flex/grid 라 hidden 속성의 기본
      display:none 을 덮어씁니다 — 패널 안에서는 hidden 이 늘 이기게. */
   #panel-cat [hidden] { display: none !important; }
@@ -784,7 +784,7 @@
   .c-size button { flex: none; min-width: 0; padding: 8px 12px; font-size: 13px; }
   #c-clear { color: var(--muted); margin-left: auto; }
 
-  /* 카냥이 탭에선 아래 안내 바를 화면에 붙여두지 않고 페이지 끝에 둡니다 —
+  /* 묘카 탭에선 아래 안내 바를 화면에 붙여두지 않고 페이지 끝에 둡니다 —
      붙여두면 화면 아래 한 줌을 늘 덮어서 도안이 그만큼 작아집니다. */
   :root[data-concept="cat"] body { padding-bottom: 20px; }
   :root[data-concept="cat"] .bottom-bar { position: static; padding: 16px 0 0; background: none; }
@@ -882,7 +882,7 @@
   <button type="button" class="concept-tab" role="tab" id="tab-rabbit"
           data-concept="rabbit" aria-selected="false" aria-controls="panel-rabbit">코토키 🐰</button>
   <button type="button" class="concept-tab" role="tab" id="tab-cat"
-          data-concept="cat" aria-selected="false" aria-controls="panel-cat">카냥이 🐱</button>
+          data-concept="cat" aria-selected="false" aria-controls="panel-cat">묘카 🐱</button>
 </nav>
 <main>
 <section id="panel-otter" class="concept-panel" role="tabpanel" aria-labelledby="tab-otter">
@@ -1087,7 +1087,7 @@
       <canvas id="c-stage" class="c-avatar" width="33" height="44"
               aria-label="발바닥으로 도안을 칠하는 고양이 캐릭터"></canvas>
       <div class="c-talk">
-        <h1 class="sr-only">카냥이</h1>
+        <h1 class="sr-only">묘카</h1>
         <div class="speech-bubble c-bubble" id="c-bubble">대기 중</div>
         <p id="c-status" class="sr-only" aria-live="polite">대기 중</p>
       </div>

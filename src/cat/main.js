@@ -1,10 +1,10 @@
 /*!
- * 함뜨마을 동물 친구들 — 카냥이 진입점
+ * 함뜨마을 동물 친구들 — 묘카 진입점
  * Copyright (c) 2026 @tteoboja_0. All rights reserved.
  * https://instagram.com/tteoboja_0
  *
- * 카냥이 패널의 DOM 배선입니다. 단수달·코토키는 companion-app.js 를
- * 같이 쓰지만, 카냥이는 하는 일(도안 칠하기 + 뜨면서 체크하기)이 달라
+ * 묘카 패널의 DOM 배선입니다. 단수달·코토키는 companion-app.js 를
+ * 같이 쓰지만, 묘카는 하는 일(도안 칠하기 + 뜨면서 체크하기)이 달라
  * 이 파일이 따로 엮습니다:
  *   chart.js       도안 모델 (칸 색, 되돌리기, 읽는 순서, 진행)
  *   chart-view.js  도안 캔버스 그리기와 칸 찾기
@@ -23,7 +23,7 @@ const $ = (id) => document.getElementById(`c-${id}`);
 const panel = document.getElementById('panel-cat');
 
 console.info(
-  '%c함뜨마을 동물 친구들 · 카냥이 — © 2026 @tteoboja_0\n무단 재배포를 금합니다. LICENSE.txt 참조.',
+  '%c함뜨마을 동물 친구들 · 묘카 — © 2026 @tteoboja_0\n무단 재배포를 금합니다. LICENSE.txt 참조.',
   'color:#5f6f92;font-weight:600'
 );
 
@@ -835,7 +835,7 @@ function refresh() {
   $('editTop').hidden = !edit;
   $('editBottom').hidden = !edit;
   // 다 뜬 뒤엔 읽을 단이 없어 카드째로 숨깁니다 — 단수달·코토키처럼 따로
-  // 결과 문구를 두지 않고, 카냥이가 양탄자를 들어 보이는 걸로 알립니다.
+  // 결과 문구를 두지 않고, 묘카가 양탄자를 들어 보이는 걸로 알립니다.
   $('knitTop').hidden = edit || chart.complete;
   $('knitBottom').hidden = edit;
   chartCanvas.classList.toggle('knit', !edit);

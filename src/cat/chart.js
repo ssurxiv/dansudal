@@ -1,5 +1,5 @@
 /*!
- * 함뜨마을 동물 친구들 — 카냥이 도안 모델
+ * 함뜨마을 동물 친구들 — 묘카 도안 모델
  * Copyright (c) 2026 @tteoboja_0. All rights reserved.
  * https://instagram.com/tteoboja_0
  *
