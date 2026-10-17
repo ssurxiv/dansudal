@@ -235,26 +235,42 @@ function renderChart() {
     view.layout(chart, avail, availH);
     laidOutFor = key;
   }
-  view.draw(chart, { mode: ui.view, preview, colors: themeColors() });
+  view.draw(chart, { mode: ui.view, preview, hover: ui.view === 'edit' ? hover : null, colors: themeColors() });
 }
 new ResizeObserver(renderChart).observe(chartWrap);
 window.addEventListener('resize', renderChart);
 
-/* 그리기 화면의 커서는 고양이 발 — 칠할 색으로 채워서, 찍힐 발도장을
-   미리 보여줍니다(지우개면 바탕색). 흰 테두리를 한 겹 더 둘러 어느 칸
-   색 위에서도 보이게 합니다. 색마다 한 번만 만듭니다. */
-const PAW_SHAPES = "<ellipse cx='14' cy='18.5' rx='6.6' ry='5.4'/>"
-  + "<circle cx='5.2' cy='11' r='2.7'/><circle cx='10.6' cy='6.2' r='2.8'/>"
-  + "<circle cx='17.4' cy='6.2' r='2.8'/><circle cx='22.8' cy='11' r='2.7'/>";
+/* 그리기 화면의 커서는 발가락 하나를 쭉 뻗어 가리키는 고양이 발 — 칠할
+   색으로 채워(지우개면 바탕색) 찍힐 색을 미리 보여줍니다. 칠해지는 자리는
+   뻗은 발가락 끝(왼쪽 위, 2·2)입니다. 처음엔 발 전체(32px) 한가운데가
+   칠하는 자리라 칸을 덮어 정밀하게 칠하기 어려웠습니다. 흰 테두리를 한 겹
+   더 둘러 어느 칸 색 위에서도 보이게 합니다. 색마다 한 번만 만듭니다. */
+// 뻗은 발가락(둥근 막대)은 흰 테두리 → 진한 테두리 → 색 순서로 굵기를
+// 줄여 겹쳐 긋고, 발바닥과 접힌 발가락 셋은 원으로 그립니다.
+const pointToe = (width, color) => "<line x1='3.4' y1='3.4' x2='10.2' y2='10.2' "
+  + `stroke='${color}' stroke-width='${width}' stroke-linecap='round'/>`;
+const PAW_PADS = "<circle cx='14.4' cy='14.6' r='5.4'/><circle cx='19.6' cy='10.6' r='2'/>"
+  + "<circle cx='20.4' cy='15.2' r='2'/><circle cx='17.6' cy='19.4' r='2'/>";
 const cursorCache = new Map();
 function pawCursor(fill) {
   if (!cursorCache.has(fill)) {
-    const svg = "<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 28 28'>"
-      + `<g fill='#fff' stroke='#fff' stroke-width='3'>${PAW_SHAPES}</g>`
-      + `<g fill='${fill}' stroke='#2f3442' stroke-width='1.3'>${PAW_SHAPES}</g></svg>`;
-    cursorCache.set(fill, `url("data:image/svg+xml,${encodeURIComponent(svg)}") 16 16, crosshair`);
+    const svg = "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>"
+      + pointToe(7.4, '#fff') + `<g fill='#fff' stroke='#fff' stroke-width='2.6'>${PAW_PADS}</g>`
+      + pointToe(6.2, '#2f3442') + `<g fill='${fill}' stroke='#2f3442' stroke-width='1.1'>${PAW_PADS}</g>`
+      + pointToe(4, fill) + '</svg>';
+    cursorCache.set(fill, `url("data:image/svg+xml,${encodeURIComponent(svg)}") 2 2, crosshair`);
   }
   return cursorCache.get(fill);
+}
+
+/* 그리기 화면에선 커서 아래 칸에 테두리를 둘러, 누르기 전에 어느 칸이
+   칠해질지 보여줍니다. */
+let hover = null;
+function setHover(cell) {
+  const same = hover && cell && hover.x === cell.x && hover.y === cell.y;
+  if (same || (!hover && !cell)) return;
+  hover = cell;
+  renderChart();
 }
 
 /** 두 칸 사이를 빈틈없이 잇는 칸들(시작 칸 제외). 빠르게 끌어도 선이 끊기지 않게. */
@@ -303,6 +319,7 @@ chartCanvas.addEventListener('pointerdown', (e) => {
 });
 
 chartCanvas.addEventListener('pointermove', (e) => {
+  if (e.pointerType === 'mouse') setHover(view.cellFromPoint(chart, e.clientX, e.clientY));
   if (!drag || drag.tool === 'tap') return;
   const cell = view.cellFromPoint(chart, e.clientX, e.clientY, true);
   if (drag.tool === 'rect') {
@@ -317,6 +334,8 @@ chartCanvas.addEventListener('pointermove', (e) => {
   }
   renderChart();
 });
+
+chartCanvas.addEventListener('pointerleave', () => setHover(null));
 
 function endDrag(e, cancelled) {
   const d = drag;

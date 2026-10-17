@@ -110,7 +110,7 @@ export class ChartView {
    *   사각형 채우기를 끌고 있는 동안의 미리보기
    * @param {{ink:string, muted:string, accent:string, veil:string}} opts.colors
    */
-  draw(chart, { mode, preview = null, colors }) {
+  draw(chart, { mode, preview = null, hover = null, colors }) {
     const { ctx, cell, label } = this;
     const W = chart.width;
     const H = chart.height;
@@ -189,6 +189,21 @@ export class ChartView {
     ctx.lineWidth = 1.5;
     ctx.strokeStyle = colors.ink;
     ctx.strokeRect(cx(0) - 0.75, cy(0) - 0.75, W * cell + 1.5, H * cell + 1.5);
+
+    // 그리기 화면: 커서 아래 칸 — 어두운 테두리 안에 흰 테두리를 한 겹 더
+    // 둘러 칸 색이 밝든 어둡든 보이게 합니다.
+    if (hover && chart.inBounds(hover.x, hover.y)) {
+      const hx = cx(hover.x);
+      const hy = cy(hover.y);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = colors.ink;
+      ctx.strokeRect(hx + 1, hy + 1, cell - 2, cell - 2);
+      if (cell >= 8) {
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#ffffff';
+        ctx.strokeRect(hx + 2.5, hy + 2.5, cell - 5, cell - 5);
+      }
+    }
 
     // 뜨기 화면: 지금 단(강조색)과 지금 구간(진하게)
     if (mode === 'knit' && working) {
