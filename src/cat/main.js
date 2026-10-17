@@ -94,6 +94,8 @@ const ui = {
   view: saved?.ui?.view === 'knit' ? 'knit' : 'edit',
   tool: ['brush', 'rect', 'erase'].includes(saved?.ui?.tool) ? saved.ui.tool : 'brush',
   color: normalizeHex(saved?.ui?.color) ?? chart.palette[0] ?? STASH[0].color,
+  // 붓·지우개 굵기(한 변의 칸 수). 사각형은 굵기와 상관없습니다.
+  brush: [1, 2, 3].includes(saved?.ui?.brush) ? saved.ui.brush : 1,
   // 다 뜬 뒤의 자세: 'showoff'(양탄자를 들어 자랑) | 'rug'(깔고 앉기).
   // 단수달·코토키처럼 다 뜨면 먼저 자랑부터 합니다.
   finishPose: saved?.ui?.finishPose === 'rug' ? 'rug' : 'showoff'
@@ -235,36 +237,57 @@ function renderChart() {
     view.layout(chart, avail, availH);
     laidOutFor = key;
   }
-  view.draw(chart, { mode: ui.view, preview, hover: ui.view === 'edit' ? hover : null, colors: themeColors() });
+  const hoverBox = ui.view === 'edit' && hover ? (ui.tool === 'rect' ? footprint(hover, 1) : footprint(hover)) : null;
+  view.draw(chart, { mode: ui.view, preview, hover: hoverBox, colors: themeColors() });
 }
 new ResizeObserver(renderChart).observe(chartWrap);
 window.addEventListener('resize', renderChart);
 
-/* 그리기 화면의 커서는 발가락 하나를 쭉 뻗어 가리키는 고양이 발 — 칠할
-   색으로 채워(지우개면 바탕색) 찍힐 색을 미리 보여줍니다. 칠해지는 자리는
-   뻗은 발가락 끝(왼쪽 위, 2·2)입니다. 처음엔 발 전체(32px) 한가운데가
-   칠하는 자리라 칸을 덮어 정밀하게 칠하기 어려웠습니다. 흰 테두리를 한 겹
-   더 둘러 어느 칸 색 위에서도 보이게 합니다. 색마다 한 번만 만듭니다. */
-// 뻗은 발가락(둥근 막대)은 흰 테두리 → 진한 테두리 → 색 순서로 굵기를
-// 줄여 겹쳐 긋고, 발바닥과 접힌 발가락 셋은 원으로 그립니다.
-const pointToe = (width, color) => "<line x1='3.4' y1='3.4' x2='10.2' y2='10.2' "
-  + `stroke='${color}' stroke-width='${width}' stroke-linecap='round'/>`;
-const PAW_PADS = "<circle cx='14.4' cy='14.6' r='5.4'/><circle cx='19.6' cy='10.6' r='2'/>"
-  + "<circle cx='20.4' cy='15.2' r='2'/><circle cx='17.6' cy='19.4' r='2'/>";
+/* 그리기 화면의 커서는 검지 하나를 세운 손 — 손가락 끝에 칠할 색 잉크가
+   묻어 있고(지우개면 깨끗한 손가락), 칠해지는 자리는 그 손가락 끝입니다.
+   일반 커서처럼 흰 손에 진한 테두리라 어느 칸 색 위에서도 보입니다.
+   처음엔 고양이 발(32px, 한가운데가 칠하는 자리)이라 칸을 덮어 정밀하게
+   칠하기 어려웠고, 발가락을 뻗은 발은 징그럽다는 반응이었습니다.
+   색마다 한 번만 만듭니다. */
+const HAND_STROKE = "stroke='#2f3442' stroke-width='1.2' stroke-linejoin='round'";
+const INDEX_FINGER = "<rect x='7.4' y='1.2' width='3.6' height='12.6' rx='1.8'";
+const HAND = `<g fill='#fff' ${HAND_STROKE}>`
+  + "<ellipse cx='6.2' cy='15.2' rx='2.7' ry='1.7' transform='rotate(38 6.2 15.2)'/>"
+  + "<rect x='7.4' y='11' width='11.6' height='10.6' rx='4'/>"
+  + "<rect x='16.6' y='10.6' width='2.9' height='5.4' rx='1.45'/>"
+  + "<rect x='13.8' y='9.2' width='3.1' height='5.8' rx='1.55'/>"
+  + "<rect x='10.8' y='8.4' width='3.2' height='6' rx='1.6'/>"
+  + `${INDEX_FINGER}/></g>`;
 const cursorCache = new Map();
-function pawCursor(fill) {
-  if (!cursorCache.has(fill)) {
-    const svg = "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>"
-      + pointToe(7.4, '#fff') + `<g fill='#fff' stroke='#fff' stroke-width='2.6'>${PAW_PADS}</g>`
-      + pointToe(6.2, '#2f3442') + `<g fill='${fill}' stroke='#2f3442' stroke-width='1.1'>${PAW_PADS}</g>`
-      + pointToe(4, fill) + '</svg>';
-    cursorCache.set(fill, `url("data:image/svg+xml,${encodeURIComponent(svg)}") 2 2, crosshair`);
+function fingerCursor(ink) {
+  const key = ink ?? 'clean';
+  if (!cursorCache.has(key)) {
+    const tip = ink
+      ? `<path d='M7.4 6.2 V3 a1.8 1.8 0 0 1 3.6 0 V6.2 Z' fill='${ink}'/>${INDEX_FINGER} fill='none' ${HAND_STROKE}/>`
+      : '';
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>${HAND}${tip}</svg>`;
+    cursorCache.set(key, `url("data:image/svg+xml,${encodeURIComponent(svg)}") 9 1, crosshair`);
   }
-  return cursorCache.get(fill);
+  return cursorCache.get(key);
 }
 
-/* 그리기 화면에선 커서 아래 칸에 테두리를 둘러, 누르기 전에 어느 칸이
-   칠해질지 보여줍니다. */
+/* 붓 굵기만큼의 정사각형 칸들. 굵기가 홀수면 누른 칸이 가운데, 2면 누른
+   칸이 왼쪽 위입니다. */
+function footprint(cell, size = ui.brush) {
+  const off = Math.floor((size - 1) / 2);
+  const x0 = Math.max(0, cell.x - off);
+  const y0 = Math.max(0, cell.y - off);
+  const x1 = Math.min(chart.width - 1, cell.x - off + size - 1);
+  const y1 = Math.min(chart.height - 1, cell.y - off + size - 1);
+  return { x0, y0, x1, y1 };
+}
+function paintFootprint(cell, color) {
+  const { x0, y0, x1, y1 } = footprint(cell);
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) chart.paint(x, y, color);
+}
+
+/* 그리기 화면에선 커서 아래 칸(붓 굵기만큼)에 테두리를 둘러, 누르기 전에
+   어디가 칠해질지 보여줍니다. */
 let hover = null;
 function setHover(cell) {
   const same = hover && cell && hover.x === cell.x && hover.y === cell.y;
@@ -311,7 +334,7 @@ chartCanvas.addEventListener('pointerdown', (e) => {
   } else {
     const color = ui.tool === 'erase' ? null : ui.color;
     chart.beginStroke();
-    chart.paint(cell.x, cell.y, color);
+    paintFootprint(cell, color);
     drag = { tool: ui.tool, color, last: cell };
     kitty.play(ui.tool === 'erase' ? 'wipe' : 'hold');
   }
@@ -329,7 +352,7 @@ chartCanvas.addEventListener('pointermove', (e) => {
     preview.y1 = cell.y;
   } else {
     if (cell.x === drag.last.x && cell.y === drag.last.y) return;
-    cellsBetween(drag.last, cell).forEach(({ x, y }) => chart.paint(x, y, drag.color));
+    cellsBetween(drag.last, cell).forEach((c) => paintFootprint(c, drag.color));
     drag.last = cell;
   }
   renderChart();
@@ -377,6 +400,17 @@ function setTool(tool) {
 $('toolBrush').addEventListener('click', () => setTool('brush'));
 $('toolRect').addEventListener('click', () => setTool('rect'));
 $('toolErase').addEventListener('click', () => setTool('erase'));
+
+function setBrush(size) {
+  const next = Math.max(1, Math.min(3, size));
+  if (next === ui.brush) return;
+  ui.brush = next;
+  persist();
+  refresh();
+}
+panel.querySelectorAll('#c-brush button').forEach((btn) => {
+  btn.addEventListener('click', () => setBrush(Number(btn.dataset.size)));
+});
 
 function undo() {
   if (!chart.undo()) { say('되돌릴 게 없어.'); return; }
@@ -762,11 +796,16 @@ function refresh() {
   $('knitTop').hidden = edit || chart.complete;
   $('knitBottom').hidden = edit;
   chartCanvas.classList.toggle('knit', !edit);
-  chartCanvas.style.cursor = edit ? pawCursor(ui.tool === 'erase' ? chart.bg : ui.color) : '';
+  chartCanvas.style.cursor = edit ? fingerCursor(ui.tool === 'erase' ? null : ui.color) : '';
 
   $('toolBrush').setAttribute('aria-pressed', String(ui.tool === 'brush'));
   $('toolRect').setAttribute('aria-pressed', String(ui.tool === 'rect'));
   $('toolErase').setAttribute('aria-pressed', String(ui.tool === 'erase'));
+  // 사각형엔 굵기가 없으니 굵기 단추를 잠급니다.
+  panel.querySelectorAll('#c-brush button').forEach((btn) => {
+    btn.setAttribute('aria-pressed', String(Number(btn.dataset.size) === ui.brush));
+    btn.disabled = ui.tool === 'rect';
+  });
   $('undo').disabled = !chart.canUndo;
   $('redo').disabled = !chart.canRedo;
   renderPalette();
@@ -809,6 +848,8 @@ document.addEventListener('keydown', (e) => {
     if (e.code === 'KeyB') setTool('brush');
     else if (e.code === 'KeyR') setTool('rect');
     else if (e.code === 'KeyE') setTool('erase');
+    else if (e.code === 'BracketLeft') setBrush(ui.brush - 1);
+    else if (e.code === 'BracketRight') setBrush(ui.brush + 1);
     return;
   }
   if (e.code === 'Space') { e.preventDefault(); knit('nextRun'); }

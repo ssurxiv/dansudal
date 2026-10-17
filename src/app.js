@@ -29,7 +29,7 @@ const HINT_TEXT = '스페이스바로 한 단 추가, 백스페이스로 한 단
 const HINTS = {
   otter: HINT_TEXT,
   rabbit: HINT_TEXT,
-  cat: '그리기: B 칠하기, R 사각형, E 지우개, Ctrl+Z 되돌리기 · 뜨기: 스페이스바 한 구간, Enter 한 단, 백스페이스 한 구간 풀기'
+  cat: '그리기: B 칠하기, R 사각형, E 지우개, [ ] 굵기, Ctrl+Z 되돌리기 · 뜨기: 스페이스바 한 구간, Enter 한 단, 백스페이스 한 구간 풀기'
 };
 
 const STORAGE_KEY = 'knit:concept';
