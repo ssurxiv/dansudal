@@ -15,7 +15,7 @@
 import { Chart, LIMITS, normalizeHex } from './chart.js';
 import { ChartView } from './chart-view.js';
 import { Kitty } from './kitty.js';
-import { RUG } from './sprites.js';
+import { RUG, LOOM_W, LOOM_H } from './sprites.js';
 import { STASH } from '../stash.js';
 
 const STORAGE_KEY = 'kanyangi:state';
@@ -118,17 +118,17 @@ function mix(a, b, t) {
   return `#${out.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
 
-/* 양탄자 픽셀 하나는 도안 여러 칸을 덮습니다(u 는 왼쪽→오른쪽, v 는
-   앞(1단)→뒤(맨 윗단) 구간). 가운데 한 칸만 집으면 가는 줄무늬나 작은
+/* 양탄자·베틀 픽셀 하나는 도안 여러 칸을 덮습니다(u 는 왼쪽→오른쪽, v 는
+   아래(1단)→위(맨 윗단) 구간). 가운데 한 칸만 집으면 가는 줄무늬나 작은
    무늬가 통째로 빠져서 바탕만 남은 양탄자가 됐습니다 — 덮는 칸 중
-   바탕 아닌 색이 3분의 1 이상이면 그 색을 씁니다. 아직 안 뜬 단은 세지
-   않습니다. */
+   바탕 아닌 색이 3분의 1 이상이면 그 색을 씁니다. maxRow 보다 위 단은
+   세지 않습니다(베틀은 지금 짜는 단까지만). */
 const RUG_MOTIF_SHARE = 1 / 3;
-function sampleRug(u0, u1, v0, v1) {
+function sampleBlock(u0, u1, v0, v1, maxRow = chart.height) {
   const x0 = Math.floor(u0 * chart.width);
   const x1 = Math.max(x0 + 1, Math.ceil(u1 * chart.width));
   const r0 = Math.floor(v0 * chart.height) + 1;
-  const r1 = Math.min(chart.progress.rows, Math.max(r0, Math.ceil(v1 * chart.height)));
+  const r1 = Math.min(maxRow, Math.max(r0, Math.ceil(v1 * chart.height)));
   const counts = new Map();
   let total = 0;
   for (let row = Math.min(r0, r1); row <= r1; row++) {
@@ -146,12 +146,37 @@ function sampleRug(u0, u1, v0, v1) {
   return bestCount >= total * RUG_MOTIF_SHARE ? best : chart.bg;
 }
 
+/* 베틀에 짜인 모습 — 도안 진행을 베틀의 짜는 칸(LOOM_W × LOOM_H 픽셀)으로
+   옮깁니다. band 는 지금 짜는 단이 걸린 픽셀 줄(아래부터), doneCols 는 그
+   줄에서 짠 칸 수(읽는 방향 기준), color 는 북에 감긴 지금 구간 색. */
+function loomState() {
+  if (chart.complete) return { row: chart.height + 1, band: LOOM_H, doneCols: 0, rtl: true, color: chart.bg, full: true };
+  const row = chart.workingRow;
+  const runs = chart.runs(row);
+  const cellsDone = runs.slice(0, chart.progress.runs).reduce((n, run) => n + run.count, 0);
+  return {
+    row,
+    band: Math.floor(((row - 1) / chart.height) * LOOM_H),
+    doneCols: Math.round((cellsDone / chart.width) * LOOM_W),
+    rtl: chart.direction(row) === 'rtl',
+    color: runs[chart.progress.runs]?.color ?? chart.bg,
+    full: false
+  };
+}
+const loomColorAt = (c, r) => sampleBlock(
+  c / LOOM_W, (c + 1) / LOOM_W, r / LOOM_H, (r + 1) / LOOM_H,
+  Math.min(chart.height, chart.progress.rows + 1)
+);
+kitty.setLoomColors(loomColorAt);
+
+/* 쉬는 자세: 다 뜬 뒤엔 자랑하기/깔고 앉기, 뜨기 화면은 베틀 앞, 그리기
+   화면은 그냥 앉아 있기. 짜던 양탄자는 베틀에 있으니 바닥엔 다 떴을
+   때만 깝니다. */
 function syncKitty() {
-  kitty.setResting(chart.complete ? ui.finishPose : 'idle');
+  kitty.setResting(chart.complete ? ui.finishPose : ui.view === 'knit' ? 'loom' : 'idle');
   kitty.setPaint(ui.tool === 'erase' ? null : ui.color);
-  kitty.setRug(chart.progress.rows > 0
-    ? { sample: sampleRug, fraction: chart.fraction, fringe: mix(chart.bg, RUG.edge, 0.35) }
-    : null);
+  kitty.setRug(chart.complete ? { sample: sampleBlock, fringe: mix(chart.bg, RUG.edge, 0.35) } : null);
+  kitty.setLoom(loomState());
 }
 
 /* ── 도안 캔버스 ──────────────────────────────────────────── */
@@ -611,15 +636,14 @@ function knit(action, cell) {
   const backward = progressIndex() < before;
   const justFinished = chart.complete && !wasComplete;
   if (justFinished) ui.finishPose = 'showoff';
-  syncKitty();
+  // 베틀부터 틀어야 지금 모습 → 새 모습으로 북이 움직입니다(refresh 의
+  // setLoom 은 짜는 동안엔 무시됩니다).
+  kitty.weave(loomState(), justFinished ? 'complete' : backward ? 'back' : 'forward');
   if (justFinished) {
-    kitty.play('complete');
     say(pick(LINES.done));
   } else if (backward) {
-    kitty.play('huff');
     say(`${pick(LINES.back)} `, ...positionParts());
   } else {
-    kitty.play('tap');
     const lead = result === 'row' ? [`${chart.progress.rows}단 끝. `] : [];
     say(...lead, ...positionParts());
   }
@@ -655,8 +679,7 @@ $('restart').addEventListener('click', () => {
   if (chart.progress.rows === 0 && chart.progress.runs === 0) { say('아직 하나도 안 떴어.'); return; }
   if (!window.confirm('뜬 기록을 처음으로 되돌릴까요? 도안은 그대로예요.')) return;
   chart.resetProgress();
-  syncKitty();
-  kitty.play('huff');
+  kitty.weave(loomState(), 'back');
   say('처음부터. ', ...positionParts());
   persist();
   refresh();
@@ -668,12 +691,7 @@ function renderReading() {
   $('progressText').textContent = `${p.rows} / ${chart.height}단`;
   const runsEl = $('runs');
   runsEl.innerHTML = '';
-  if (!row) {
-    $('rowLabel').textContent = '다 떴어요 🐾';
-    $('rowDir').textContent = '양탄자 완성';
-    runsEl.className = 'c-runs';
-    return;
-  }
+  if (!row) return; // 다 뜨면 카드째로 숨깁니다(refresh)
   const side = chart.style === 'flat' ? ` · ${chart.side(row) === 'RS' ? '겉면' : '안면'}` : '';
   const rtl = chart.direction(row) === 'rtl';
   $('rowLabel').textContent = `${row}단${side}`;
@@ -701,6 +719,7 @@ function setView(next) {
   ui.view = next;
   persist();
   refresh();
+  kitty.play('rest'); // 칠하던 동작이 남아 있어도 바로 그 화면의 자세(베틀 앞/그냥 앉기)로
   if (next === 'knit') say(...(chart.complete ? [pick(LINES[ui.finishPose])] : ['지금 ', ...positionParts()]));
   else say('도안 그리기. 칠할 색을 골라.');
 }
@@ -713,7 +732,9 @@ function refresh() {
   $('modeKnit').setAttribute('aria-pressed', String(!edit));
   $('editTop').hidden = !edit;
   $('editBottom').hidden = !edit;
-  $('knitTop').hidden = edit;
+  // 다 뜬 뒤엔 읽을 단이 없어 카드째로 숨깁니다 — 단수달·코토키처럼 따로
+  // 결과 문구를 두지 않고, 카냥이가 양탄자를 들어 보이는 걸로 알립니다.
+  $('knitTop').hidden = edit || chart.complete;
   $('knitBottom').hidden = edit;
   chartCanvas.classList.toggle('knit', !edit);
   chartCanvas.style.cursor = edit ? pawCursor(ui.tool === 'erase' ? chart.bg : ui.color) : '';

@@ -396,3 +396,74 @@ export function holdingPaws(dy = 0) {
   restPaw(buf, [HELD_RUG.right - 1, HELD_RUG.top + dy]);
   return padC(buf);
 }
+
+/* ── 베틀: 뜨기 화면 ──────────────────────────────────────── */
+/* 뜨기 화면에선 카냥이가 작은 베틀 뒤에 앉아 도안을 짭니다(시안 비교에서
+   스킬자수보다 베틀을 고름 — 북이 단마다 좌우를 번갈아 가서 지그재그가
+   그대로 보이고, 구간 하나가 북 한 번이라 진행 단위와 맞습니다). 짜는
+   칸(LOOM)에는 도안이 줄어 들어가고, 아래(1단)부터 짜여 올라갑니다.
+   안 짠 자리엔 날실만 보입니다. 짜는 칸의 픽셀 색은 cat/main.js 가
+   도안에서 골라 주고(kitty.js 가 칠함), 여기선 틀·날실·북 모양만 둡니다. */
+export const LOOM = { left: 7, right: 25, top: 26, bottom: 39 };
+export const LOOM_W = LOOM.right - LOOM.left + 1;  // 19
+export const LOOM_H = LOOM.bottom - LOOM.top + 1;  // 14
+export const LOOM_COLORS = {
+  d: '#7b5233', // 나무 그늘
+  w: '#b98252', // 나무
+  l: '#d8a874', // 나무 밝은 면
+  r: '#efe8d8', // 날실
+  g: '#c3b79d'  // 날실 사이(그늘)
+};
+
+/* 틀 — 기둥 둘(x4~5, x27~28)과 위·아래 가로대, 날실. 짜인 칸은 그 위에
+   덮어 칠합니다. 위 가로대(y24~25)는 턱 바로 아래라 카냥이가 틀 너머로
+   얼굴만 내민 모습이 됩니다. */
+export const loomFrame = (() => {
+  const buf = buffer();
+  const postL = LOOM.left - 3;
+  const postR = LOOM.right + 2;
+  for (let y = LOOM.top - 2; y <= LOOM.bottom + 3; y++) {
+    [postL, postR].forEach((x) => { put(buf, x, y, 'd'); put(buf, x + 1, y, 'w'); });
+  }
+  for (let x = postL; x <= postR + 1; x++) {
+    put(buf, x, LOOM.top - 2, 'd');
+    put(buf, x, LOOM.top - 1, 'l');
+    put(buf, x, LOOM.bottom + 1, 'w');
+    put(buf, x, LOOM.bottom + 2, 'd');
+  }
+  for (let y = LOOM.top; y <= LOOM.bottom; y++) {
+    put(buf, LOOM.left - 1, y, 'g');
+    put(buf, LOOM.right + 1, y, 'g');
+    for (let x = LOOM.left; x <= LOOM.right; x++) put(buf, x, y, x % 2 === 0 ? 'r' : 'g');
+  }
+  return padC(buf);
+})();
+
+/* 위 가로대를 잡은 두 앞발. 좌우 합이 32 라 대칭입니다. */
+export const loomPaws = (() => {
+  const buf = buffer();
+  restPaw(buf, [LOOM.left, LOOM.top - 3]);
+  restPaw(buf, [LOOM.right - 3, LOOM.top - 3]);
+  return padC(buf);
+})();
+
+/* 북 — 배 모양 나무에 지금 구간 색 실(c)이 감겨 있습니다. (cx, y) 는
+   북 가운데가 놓일 칸. */
+const SHUTTLE = ['.ddddd.', 'dlcccld', '.ddddd.'];
+export function shuttle(cx, y) {
+  const buf = buffer();
+  SHUTTLE.forEach((row, dy) => {
+    [...row].forEach((ch, dx) => { if (ch !== '.') put(buf, cx - 3 + dx, y - 1 + dy, ch); });
+  });
+  return padC(buf);
+}
+
+/* 바디(빗살 막대) — 한 단을 마치면 방금 짠 줄 위로 내려와 탁 다집니다. */
+export function beater(y) {
+  const buf = buffer();
+  for (let x = LOOM.left - 1; x <= LOOM.right + 1; x++) {
+    put(buf, x, y - 2, 'w');
+    put(buf, x, y - 1, 'd');
+  }
+  return padC(buf);
+}
