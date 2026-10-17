@@ -19,7 +19,6 @@ import { RUG } from './sprites.js';
 import { STASH } from '../stash.js';
 
 const STORAGE_KEY = 'kanyangi:state';
-const ZOOM_KEY = 'kanyangi-zoom';
 const $ = (id) => document.getElementById(`c-${id}`);
 const panel = document.getElementById('panel-cat');
 
@@ -273,6 +272,11 @@ chartCanvas.addEventListener('pointercancel', (e) => endDrag(e, true));
 
 function setTool(tool) {
   ui.tool = tool;
+  if (editorTarget === 'bg') {
+    editorTarget = null;
+    bgSession = false;
+    editor.hidden = true;
+  }
   persist();
   refresh();
 }
@@ -282,6 +286,7 @@ $('toolErase').addEventListener('click', () => setTool('erase'));
 
 function undo() {
   if (!chart.undo()) { say('되돌릴 게 없어.'); return; }
+  syncBgEditor();
   kitty.play('huff');
   say(pick(LINES.undo));
   persist();
@@ -289,6 +294,7 @@ function undo() {
 }
 function redo() {
   if (!chart.redo()) { say('다시 할 게 없어.'); return; }
+  syncBgEditor();
   kitty.play('stamp');
   say(pick(LINES.redo));
   persist();
@@ -298,12 +304,22 @@ $('undo').addEventListener('click', undo);
 $('redo').addEventListener('click', redo);
 
 /* ── 색 ───────────────────────────────────────────────────── */
+/* 색 편집기 하나를 두 가지로 씁니다.
+     'new' — 팔레트 끝 '+': 새 색을 만들어 팔레트에 넣습니다.
+     'bg'  — 팔레트 맨 앞 '바탕': 바탕색을 바로바로 바꿉니다. 이 동안엔
+             팔레트 색을 눌러도 칠할 색이 아니라 바탕색이 됩니다.
+   예전엔 '바탕' 견본이 지우개를 고르는 단추였는데, 이름만 보고 바탕색을
+   고르려던 사람에겐 아무 일도 안 일어나는 것처럼 보였습니다(지우개는
+   도구 줄의 🧽 하나로 충분합니다). */
 
 const paletteEl = $('palette');
 const editor = $('colorEditor');
 const hexInput = $('hex');
 const sliders = ['r', 'g', 'b'].map((k) => ({ input: $(k), out: $(`${k}Out`) }));
 let draft = ui.color;
+let editorTarget = null; // null | 'new' | 'bg'
+// 바탕색을 고르는 동안(편집기를 연 한 번)은 되돌리기 기록을 하나로 합칩니다.
+let bgSession = false;
 
 function swatch(color, label) {
   const btn = document.createElement('button');
@@ -321,15 +337,16 @@ function swatch(color, label) {
 function renderPalette() {
   const focused = paletteEl.contains(document.activeElement) ? document.activeElement.dataset.key : null;
   paletteEl.innerHTML = '';
+  const pickingBg = editorTarget === 'bg';
 
   const bgWrap = document.createElement('span');
   bgWrap.className = 'c-bg-wrap';
-  const bgBtn = swatch(chart.bg, '바탕색으로 칠하기(지우개)');
+  const bgBtn = swatch(chart.bg, '바탕색 바꾸기');
   bgBtn.classList.add('c-bg-swatch');
   bgBtn.dataset.key = 'bg';
-  bgBtn.classList.toggle('recent', ui.tool === 'erase');
-  bgBtn.setAttribute('aria-pressed', String(ui.tool === 'erase'));
-  bgBtn.addEventListener('click', () => setTool('erase'));
+  bgBtn.classList.toggle('recent', pickingBg);
+  bgBtn.setAttribute('aria-expanded', String(pickingBg));
+  bgBtn.addEventListener('click', () => openEditor('bg'));
   const bgLabel = document.createElement('span');
   bgLabel.className = 'c-bg-label';
   bgLabel.textContent = '바탕';
@@ -340,7 +357,7 @@ function renderPalette() {
   paletteEl.append(bgWrap, divider);
 
   chart.palette.forEach((color) => {
-    const selected = ui.tool !== 'erase' && color === ui.color;
+    const selected = !pickingBg && ui.tool !== 'erase' && color === ui.color;
     const btn = swatch(color, nameOf(color) ?? color);
     btn.dataset.key = color;
     btn.classList.toggle('recent', selected);
@@ -355,17 +372,22 @@ function renderPalette() {
   add.dataset.key = 'add';
   add.textContent = '+';
   add.setAttribute('aria-label', '새 색 만들기');
-  add.setAttribute('aria-expanded', String(!editor.hidden));
-  add.addEventListener('click', toggleEditor);
+  add.setAttribute('aria-expanded', String(editorTarget === 'new'));
+  add.addEventListener('click', () => openEditor('new'));
   paletteEl.append(add);
 
   if (focused) paletteEl.querySelector(`[data-key="${focused}"]`)?.focus();
 }
 
 function selectColor(color) {
+  if (editorTarget === 'bg') {
+    setDraft(color);
+    applyBg(color);
+    return;
+  }
   ui.color = color;
   if (ui.tool === 'erase') ui.tool = 'brush';
-  if (!editor.hidden) setDraft(color);
+  if (editorTarget === 'new') setDraft(color);
   persist();
   refresh();
 }
@@ -384,26 +406,74 @@ function setDraft(hex, { keepHexInput = false } = {}) {
   });
 }
 
+/** 편집기 값이 바뀌었을 때 — 바탕색을 고르는 중이면 바로 칠합니다. */
+function draftChanged() {
+  if (editorTarget === 'bg') applyBg(draft);
+}
+
+function applyBg(color) {
+  if (!chart.setBg(color, { merge: bgSession })) return;
+  bgSession = true;
+  say('바탕색 바꿨어.', { color });
+  persist();
+  refresh();
+}
+
+/** 되돌리기로 바탕색이 바뀌었으면 편집기도 따라가고, 다음 바꿈은 새 기록으로. */
+function syncBgEditor() {
+  bgSession = false;
+  if (editorTarget === 'bg') setDraft(chart.bg);
+}
+
 sliders.forEach(({ input }) => {
   input.addEventListener('input', () => {
-    setDraft(`#${sliders.map((s) => toHex2(s.input.value)).join('')}`);
+    setDraft(`#${sliders.map((sl) => toHex2(sl.input.value)).join('')}`);
+    draftChanged();
   });
 });
 hexInput.addEventListener('input', () => {
   const hex = normalizeHex(hexInput.value);
-  if (hex) setDraft(hex, { keepHexInput: true });
-  else hexInput.setAttribute('aria-invalid', 'true');
+  if (!hex) {
+    hexInput.setAttribute('aria-invalid', 'true');
+    return;
+  }
+  setDraft(hex, { keepHexInput: true });
+  draftChanged();
 });
 hexInput.addEventListener('blur', () => setDraft(draft));
 hexInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); addDraft(); }
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  if (editorTarget === 'new') addDraft();
+  else closeEditor();
 });
 
-function toggleEditor() {
-  editor.hidden = !editor.hidden;
-  if (!editor.hidden) setDraft(ui.tool === 'erase' ? chart.bg : ui.color);
+/** 같은 단추를 다시 누르면 닫습니다. */
+function openEditor(target) {
+  if (editorTarget === target) {
+    closeEditor();
+    return;
+  }
+  editorTarget = target;
+  bgSession = false;
+  editor.hidden = false;
+  const forBg = target === 'bg';
+  $('editorTitle').textContent = forBg ? '바탕색 바꾸기 · 팔레트 색을 눌러도 돼요' : '새 색 만들기';
+  $('colorAdd').hidden = forBg;
+  $('colorRemove').hidden = forBg;
+  $('colorDone').textContent = forBg ? '완료' : '닫기';
+  setDraft(forBg ? chart.bg : ui.color);
+  if (forBg) say('바탕색은 뭐로 할까?');
   refresh();
 }
+
+function closeEditor() {
+  editorTarget = null;
+  bgSession = false;
+  editor.hidden = true;
+  refresh();
+}
+$('colorDone').addEventListener('click', closeEditor);
 
 function addDraft() {
   if (!chart.addColor(draft)) {
@@ -417,12 +487,6 @@ function addDraft() {
   refresh();
 }
 $('colorAdd').addEventListener('click', addDraft);
-
-$('colorBg').addEventListener('click', () => {
-  if (chart.setBg(draft)) say('바탕색 바꿨어.', { color: draft });
-  persist();
-  refresh();
-});
 
 $('colorRemove').addEventListener('click', () => {
   if (ui.tool === 'erase' || !chart.palette.includes(ui.color)) {
@@ -619,25 +683,6 @@ function refresh() {
   renderChart();
   syncKitty();
 }
-
-/* ── 확대/축소 ────────────────────────────────────────────── */
-
-const ZOOM_MIN = 0.7;
-const ZOOM_MAX = 2;
-const ZOOM_STEP = 0.15;
-let zoom = 1;
-try {
-  const savedZoom = Number(localStorage.getItem(ZOOM_KEY));
-  if (Number.isFinite(savedZoom) && savedZoom >= ZOOM_MIN && savedZoom <= ZOOM_MAX) zoom = savedZoom;
-} catch { /* 프라이빗 창 등에서는 무시 */ }
-
-function applyZoom() {
-  panel.style.setProperty('--zoom', zoom.toFixed(2));
-  try { localStorage.setItem(ZOOM_KEY, zoom); } catch { /* 무시 */ }
-}
-applyZoom();
-$('zoomIn').addEventListener('click', () => { zoom = Math.min(ZOOM_MAX, +(zoom + ZOOM_STEP).toFixed(2)); applyZoom(); });
-$('zoomOut').addEventListener('click', () => { zoom = Math.max(ZOOM_MIN, +(zoom - ZOOM_STEP).toFixed(2)); applyZoom(); });
 
 /* ── 단축키 ───────────────────────────────────────────────── */
 /* 다른 탭이 열려 있으면(이 패널이 hidden) 반응하지 않습니다. */

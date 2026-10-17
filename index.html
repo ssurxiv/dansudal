@@ -146,7 +146,6 @@
      이 서브트리에서만 값을 가집니다 — 지금은 확대/축소 버튼이 없어
      항상 1이지만, 나중에 붙이면 이 선언 하나로 서로 안 섞입니다. */
   #panel-rabbit { --zoom: 1; }
-  #panel-cat { --zoom: 1; }
 
   .page-head {
     display: flex;
@@ -536,6 +535,49 @@
      display:none 을 덮어씁니다 — 패널 안에서는 hidden 이 늘 이기게. */
   #panel-cat [hidden] { display: none !important; }
 
+  /* 배치: 좁은 화면은 한 줄로 쌓고(캐릭터 → 화면 고르기 → 도구 → 도안 →
+     아래 버튼), 넓은 화면은 왼쪽 사이드(캐릭터·도구)와 오른쪽 도안 두
+     칸으로 나눕니다. 도안이 주인공이라 넓은 화면에선 본문 폭도 넓힙니다.
+     같은 자리(top/bottom)를 쓰는 둘은 그리기/뜨기 중 하나만 보입니다. */
+  #panel-cat:not([hidden]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "hero" "modes" "top" "chart" "bottom";
+    column-gap: 20px;
+    align-items: start;
+  }
+  .c-hero { grid-area: hero; }
+  .c-modes { grid-area: modes; }
+  .c-top { grid-area: top; }
+  .c-chart-wrap { grid-area: chart; }
+  .c-bottom { grid-area: bottom; }
+
+  /* 캐릭터는 작게(3배) — 말풍선은 아래가 아니라 옆에서 꼬리를 왼쪽으로. */
+  .c-hero {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--stage-bg);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 8px 12px 8px 8px;
+  }
+  .c-avatar { flex: none; display: block; width: 99px; height: auto; image-rendering: pixelated; }
+  .c-hero-text { min-width: 0; display: grid; justify-items: start; gap: 6px; }
+  .speech-bubble.c-bubble { margin: 0 0 0 8px; max-width: calc(100% - 8px); }
+  .speech-bubble.c-bubble::before,
+  .speech-bubble.c-bubble::after { top: 50%; bottom: auto; transform: translateY(-50%); }
+  .speech-bubble.c-bubble::before {
+    left: -8px;
+    border-width: 7px 8px 7px 0;
+    border-color: transparent var(--line) transparent transparent;
+  }
+  .speech-bubble.c-bubble::after {
+    left: -6px;
+    border-width: 6px 7px 6px 0;
+    border-color: transparent #fff transparent transparent;
+  }
+
   /* 도안 그리기 / 뜨기 — 한 덩어리 토글. 고른 쪽만 카드색으로 채웁니다. */
   .c-modes {
     display: flex;
@@ -558,22 +600,22 @@
   /* 도구 셋은 폭을 나눠 갖고 되돌리기·다시는 작은 네모로 — 휴대폰에서도
      한 줄에 들어갑니다(줄바꿈되면 '다시'만 아랫줄에 홀로 남았습니다). */
   .c-tools { display: flex; gap: 6px; margin-bottom: 10px; }
-  .c-tools button {
+  .c-tool-group { display: flex; gap: 6px; flex: 1 1 auto; min-width: 0; }
+  .c-tool-group button {
     flex: 1 1 0;
     min-width: 0;
     padding: 8px 4px;
     font-size: 14px;
     white-space: nowrap;
   }
-  .c-tools #c-undo,
-  .c-tools #c-redo { flex: none; width: 38px; padding: 0; }
+  .c-history { display: flex; gap: 6px; flex: none; }
+  .c-history button { flex: none; width: 38px; min-width: 0; padding: 8px 0; }
   .c-tools button[aria-pressed="true"] {
     border-color: var(--yarn);
     color: var(--yarn);
     background: var(--card);
     box-shadow: inset 0 0 0 1px var(--yarn);
   }
-  .c-tools-gap { flex: 0 0 4px; }
 
   /* 색 고르기 — 실 창고와 같은 실타래 단추를 그대로 씁니다. 맨 앞은
      바탕(안 칠한 칸)이라 네모로, 맨 끝은 새 색 넣기. */
@@ -599,6 +641,7 @@
     padding: 12px;
     margin-bottom: 10px;
   }
+  .c-editor-title { margin: 0; font-size: 13px; font-weight: 600; }
   .c-color-head { display: flex; align-items: center; gap: 10px; }
   .c-color-preview {
     flex: none;
@@ -697,6 +740,27 @@
   .c-size input[type="number"] { width: 4.2em; padding: 6px; }
   .c-size button { flex: none; min-width: 0; padding: 8px 12px; font-size: 13px; }
   #c-clear { color: var(--muted); margin-left: auto; }
+
+  @media (min-width: 760px) {
+    :root[data-concept="cat"] main,
+    :root[data-concept="cat"] .bottom-bar-inner { max-width: 900px; }
+    #panel-cat:not([hidden]) {
+      grid-template-columns: 270px minmax(0, 1fr);
+      grid-template-rows: auto auto auto auto 1fr;
+      grid-template-areas:
+        "hero   chart"
+        "modes  chart"
+        "top    chart"
+        "bottom chart"
+        ".      chart";
+    }
+    /* 사이드 폭(270px)에선 도구 셋과 되돌리기 둘이 한 줄에 안 들어가서
+       되돌리기·다시를 아랫줄 오른쪽으로 내립니다. */
+    .c-tools { flex-wrap: wrap; }
+    .c-tool-group { flex-basis: 100%; }
+    .c-history { margin-left: auto; }
+    .c-knit-controls button { padding: 10px 6px; font-size: 14px; }
+  }
 
   .hint { font-size: 13px; color: var(--muted); margin: 0 0 4px; }
   footer {
@@ -971,19 +1035,17 @@
 </section>
 
 <section id="panel-cat" class="concept-panel" role="tabpanel" aria-labelledby="tab-cat" hidden>
-  <div class="page-head">
-    <h1>카냥이 🐱</h1>
-    <div class="zoom-controls">
-      <button id="c-zoomOut" type="button" aria-label="캐릭터 작게 보기">−</button>
-      <button id="c-zoomIn" type="button" aria-label="캐릭터 크게 보기">+</button>
-    </div>
-  </div>
-
-  <div class="stage-wrap">
-    <div class="speech-bubble kind-chat" id="c-bubble">대기 중</div>
-    <canvas id="c-stage" class="pixel-stage" width="33" height="44"
+  <!-- 카냥이는 도안이 주인공이라 캐릭터는 왼쪽 위에 작게, 말풍선은 옆으로
+       둡니다. 넓은 화면에선 이 열(캐릭터·도구)이 왼쪽 사이드가 되고 도안이
+       오른쪽 넓은 칸을 차지합니다(그리드 배치는 #panel-cat 스타일 참조). -->
+  <div class="c-hero">
+    <canvas id="c-stage" class="c-avatar" width="33" height="44"
             aria-label="발바닥으로 도안을 칠하는 고양이 캐릭터"></canvas>
-    <p id="c-status" class="sr-only" aria-live="polite">대기 중</p>
+    <div class="c-hero-text">
+      <h1>카냥이 🐱</h1>
+      <div class="speech-bubble c-bubble" id="c-bubble">대기 중</div>
+      <p id="c-status" class="sr-only" aria-live="polite">대기 중</p>
+    </div>
   </div>
 
   <div class="c-modes" role="group" aria-label="화면 고르기">
@@ -991,17 +1053,21 @@
     <button type="button" id="c-modeKnit" aria-pressed="false">🧶 뜨기</button>
   </div>
 
-  <div id="c-editTop">
-    <div class="c-tools" role="group" aria-label="도구">
-      <button type="button" id="c-toolBrush" aria-pressed="true">🐾 칠하기</button>
-      <button type="button" id="c-toolRect" aria-pressed="false">⬜ 사각형</button>
-      <button type="button" id="c-toolErase" aria-pressed="false">🧽 지우개</button>
-      <span class="c-tools-gap"></span>
-      <button type="button" id="c-undo" aria-label="되돌리기" title="되돌리기">↶</button>
-      <button type="button" id="c-redo" aria-label="다시 하기" title="다시 하기">↷</button>
+  <div id="c-editTop" class="c-top">
+    <div class="c-tools">
+      <div class="c-tool-group" role="group" aria-label="도구">
+        <button type="button" id="c-toolBrush" aria-pressed="true">🐾 칠하기</button>
+        <button type="button" id="c-toolRect" aria-pressed="false">⬜ 사각형</button>
+        <button type="button" id="c-toolErase" aria-pressed="false">🧽 지우개</button>
+      </div>
+      <div class="c-history">
+        <button type="button" id="c-undo" aria-label="되돌리기" title="되돌리기">↶</button>
+        <button type="button" id="c-redo" aria-label="다시 하기" title="다시 하기">↷</button>
+      </div>
     </div>
     <div class="c-palette" id="c-palette" role="group" aria-label="칠할 색"></div>
     <div class="c-color-editor" id="c-colorEditor" hidden>
+      <p class="c-editor-title" id="c-editorTitle">새 색 만들기</p>
       <div class="c-color-head">
         <span class="c-color-preview" id="c-colorPreview"></span>
         <label class="c-hex">HEX <input type="text" id="c-hex" maxlength="7" spellcheck="false" autocomplete="off" /></label>
@@ -1011,14 +1077,14 @@
       <label class="c-slider"><span>B</span><input type="range" id="c-b" min="0" max="255" /><output id="c-bOut" for="c-b">0</output></label>
       <div class="c-color-actions">
         <button type="button" id="c-colorAdd">🎨 팔레트에 넣기</button>
-        <button type="button" id="c-colorBg">바탕색으로</button>
         <button type="button" id="c-colorRemove">고른 색 빼기</button>
+        <button type="button" id="c-colorDone">닫기</button>
       </div>
     </div>
-    <p class="hint">칸을 누르거나 끌어서 칠해요. 사각형은 끌어서 영역을 잡으면 한 번에 채워요.</p>
+    <p class="hint">칸을 누르거나 끌어서 칠해요. 사각형은 끌어서 영역을 잡으면 한 번에 채워요. 맨 앞 '바탕'을 누르면 바탕색을 바꿔요.</p>
   </div>
 
-  <div id="c-knitTop" class="c-reading" hidden>
+  <div id="c-knitTop" class="c-top c-reading" hidden>
     <div class="c-reading-head">
       <strong id="c-rowLabel">1단</strong>
       <span id="c-rowDir">← 오른쪽부터</span>
@@ -1031,7 +1097,7 @@
     <canvas id="c-chart" class="c-chart" role="img" aria-label="배색 도안"></canvas>
   </div>
 
-  <div id="c-knitBottom" hidden>
+  <div id="c-knitBottom" class="c-bottom" hidden>
     <div class="controls c-knit-controls">
       <button id="c-nextRun" type="button">🐾 한 구간 떴어요</button>
       <button id="c-nextRow" type="button">🧶 한 단 떴어요</button>
@@ -1049,7 +1115,7 @@
     </div>
   </div>
 
-  <div id="c-editBottom" class="c-size">
+  <div id="c-editBottom" class="c-bottom c-size">
     <label>가로 <input type="number" id="c-width" min="2" max="60" required /> 코</label>
     <span aria-hidden="true">×</span>
     <label>세로 <input type="number" id="c-height" min="2" max="100" required /> 단</label>

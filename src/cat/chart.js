@@ -174,6 +174,8 @@ export class Chart {
     if (entry.type === 'cells') {
       const pick = side === 'before' ? 1 : 2;
       entry.changes.forEach((change) => { this.cells[change[0]] = change[pick]; });
+    } else if (entry.type === 'bg') {
+      this.bg = entry[side];
     } else {
       this.applySnapshot(entry[side]);
     }
@@ -201,10 +203,23 @@ export class Chart {
     return this.palette.length !== before;
   }
 
-  setBg(hex) {
+  /**
+   * 바탕색을 바꿉니다. 슬라이더를 끄는 동안은 값이 수십 번 바뀌므로,
+   * merge 면 바로 앞 기록(같은 바탕색 고르기)에 덮어써서 되돌리기 한 번에
+   * 고르기 전 색으로 돌아가게 합니다.
+   */
+  setBg(hex, { merge = false } = {}) {
     const color = normalizeHex(hex);
     if (!color || color === this.bg) return false;
+    const last = this.undoStack[this.undoStack.length - 1];
+    if (merge && last?.type === 'bg') {
+      last.after = color;
+      this.redoStack = [];
+    } else {
+      this.pushHistory({ type: 'bg', before: this.bg, after: color });
+    }
     this.bg = color;
+    this.clampProgress(); // 바탕색이 칠한 색과 같아지면 구간이 합쳐집니다
     return true;
   }
 

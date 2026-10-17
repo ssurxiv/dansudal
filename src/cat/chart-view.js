@@ -9,6 +9,8 @@
  *     오른쪽, 안면 단은 왼쪽 — 번호만 봐도 지그재그 방향이 보입니다).
  *   - 코 번호는 오른쪽 끝이 1코입니다.
  *   - 5칸마다 조금 진하게, 10칸마다 굵게 선을 긋습니다(오른쪽·아래 기준).
+ * 칠한 칸은 네모를 꽉 채우지 않고 그 색의 발도장으로 찍습니다(카냥이가
+ * 젤리로 찍는 컨셉). 칸이 너무 작아 발도장이 뭉개지면 네모로 채웁니다.
  * 뜨기 화면에서는 다 뜬 칸을 옅게 덮고, 다 뜬 단 끝에 발도장을 찍고,
  * 지금 단과 지금 구간을 테두리로 짚어줍니다.
  */
@@ -19,6 +21,7 @@ const TOP = 6;
 const BOTTOM = 18;
 const MIN_CELL = 6;
 const MAX_CELL = 28;
+const MIN_PAW_CELL = 10; // 이보다 작은 칸은 발도장 대신 네모로
 
 export class ChartView {
   constructor(canvas) {
@@ -83,22 +86,31 @@ export class ChartView {
     const cy = (y) => top + y * cell;
     ctx.clearRect(0, 0, this.cssW, this.cssH);
 
-    // 칸 색
+    // 바탕을 한 번에 깔고, 칠한 칸마다 그 색 발도장을 찍습니다. 사각형을
+    // 끌고 있는 동안엔 그 안을 칠해질 색으로 미리 찍어 보여줍니다.
+    const box = preview && {
+      x0: Math.min(preview.x0, preview.x1), x1: Math.max(preview.x0, preview.x1),
+      y0: Math.min(preview.y0, preview.y1), y1: Math.max(preview.y0, preview.y1)
+    };
+    const inBox = (x, y) => box && x >= box.x0 && x <= box.x1 && y >= box.y0 && y <= box.y1;
+    ctx.fillStyle = chart.bg;
+    ctx.fillRect(cx(0), cy(0), W * cell, H * cell);
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
-        ctx.fillStyle = chart.colorAt(x, y);
-        ctx.fillRect(cx(x), cy(y), cell, cell);
+        const color = inBox(x, y) ? preview.color : chart.cellAt(x, y);
+        if (color === null || color === chart.bg) continue;
+        if (cell >= MIN_PAW_CELL) {
+          stampPaw(ctx, cx(x), cy(y), cell, color);
+        } else {
+          ctx.fillStyle = color;
+          ctx.fillRect(cx(x), cy(y), cell, cell);
+        }
       }
     }
 
-    // 사각형 미리보기 — 칠해질 색으로 덮고 점선 테두리
-    if (preview) {
-      const [x0, x1] = [Math.min(preview.x0, preview.x1), Math.max(preview.x0, preview.x1)];
-      const [y0, y1] = [Math.min(preview.y0, preview.y1), Math.max(preview.y0, preview.y1)];
-      ctx.globalAlpha = 0.8;
-      ctx.fillStyle = preview.color ?? chart.bg;
-      ctx.fillRect(cx(x0), cy(y0), (x1 - x0 + 1) * cell, (y1 - y0 + 1) * cell);
-      ctx.globalAlpha = 1;
+    // 사각형 미리보기 테두리
+    if (box) {
+      const { x0, x1, y0, y1 } = box;
       ctx.setLineDash([4, 3]);
       ctx.lineWidth = 2;
       ctx.strokeStyle = colors.ink;
@@ -177,8 +189,16 @@ export class ChartView {
       }
       // 다 뜬 단은 끝나는 쪽에 발도장
       if (mode === 'knit' && row <= p.rows) {
+        const size = Math.min(cell, label - 4);
         const mx = startsRight ? cx(0) - label / 2 : cx(W) + label / 2;
-        drawPaw(ctx, mx, y, Math.min(cell, label - 6), colors.accent);
+        if (size >= 8) {
+          stampPaw(ctx, mx - size / 2, y - size / 2, size, colors.accent);
+        } else {
+          ctx.fillStyle = colors.accent;
+          ctx.beginPath();
+          ctx.arc(mx, y, Math.max(1.5, size / 3), 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
 
@@ -195,22 +215,20 @@ export class ChartView {
   }
 }
 
-/** 작은 발도장(발바닥 하나 + 발가락 셋). 너무 작으면 점 하나. */
-function drawPaw(ctx, x, y, size, color) {
+/* 고양이 발도장 하나 — 발가락 넷이 둥글게 둘러싼 큰 발바닥. size × size
+   칸의 왼쪽 위(x, y) 기준 비율로 잡아 칸 크기가 달라도 같은 모양입니다.
+   바깥 발가락은 안쪽보다 조금 낮게 둬야 고양이 발로 읽힙니다(넷을 한 줄로
+   세우면 꽃이나 구름 같았습니다). */
+const TOES = [[0.18, 0.4, 0.1], [0.38, 0.23, 0.105], [0.62, 0.23, 0.105], [0.82, 0.4, 0.1]];
+const PAD = [0.5, 0.68, 0.24, 0.195];
+
+function stampPaw(ctx, x, y, size, color) {
   ctx.fillStyle = color;
-  if (size < 8) {
-    ctx.beginPath();
-    ctx.arc(x, y, Math.max(1.5, size / 3), 0, Math.PI * 2);
-    ctx.fill();
-    return;
-  }
-  const s = size / 10;
   ctx.beginPath();
-  ctx.ellipse(x, y + 1.6 * s, 2.6 * s, 2.1 * s, 0, 0, Math.PI * 2);
-  ctx.fill();
-  [[-2.7, -1.6], [0, -2.9], [2.7, -1.6]].forEach(([dx, dy]) => {
-    ctx.beginPath();
-    ctx.arc(x + dx * s, y + dy * s, 1.15 * s, 0, Math.PI * 2);
-    ctx.fill();
+  ctx.ellipse(x + PAD[0] * size, y + PAD[1] * size, PAD[2] * size, PAD[3] * size, 0, 0, Math.PI * 2);
+  TOES.forEach(([tx, ty, r]) => {
+    ctx.moveTo(x + (tx + r) * size, y + ty * size);
+    ctx.arc(x + tx * size, y + ty * size, r * size, 0, Math.PI * 2);
   });
+  ctx.fill();
 }
