@@ -633,8 +633,8 @@
     padding: 10px 12px;
     margin-bottom: 10px;
   }
-  .c-paint-row { display: grid; grid-template-columns: 2.4em minmax(0, 1fr); align-items: start; gap: 6px; }
-  .c-paint-label { font-size: 13px; color: var(--muted); line-height: 30px; }
+  .c-paint-row { display: grid; grid-template-columns: 2.4em minmax(0, 1fr); align-items: center; gap: 6px; }
+  .c-paint-label { font-size: 13px; color: var(--muted); }
   .c-brush { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .c-brush button {
     flex: none;
@@ -655,10 +655,19 @@
 
   /* 색 고르기 — 실 창고와 같은 실타래 단추를 그대로 씁니다. 맨 앞은
      바탕(안 칠한 칸)이라 네모로, 맨 끝은 새 색 넣기. */
-  .c-palette { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
-  .c-bg-wrap { display: inline-flex; align-items: center; gap: 4px; flex: none; }
-  .c-bg-swatch { border-radius: 8px; background-image: none; }
-  .c-bg-label { font-size: 12px; color: var(--muted); }
+  /* 색 줄: + 하나와 팔레트 8색(최대)을 한 줄에 고르게 — 폭이 좁으면 동그라미가
+     같이 작아져서 줄이 들쭉날쭉 접히지 않습니다. */
+  .c-palette {
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 30px));
+    gap: 6px;
+    align-items: center;
+  }
+  .c-palette .swatch { width: 100%; height: auto; aspect-ratio: 1; }
+  /* 바탕 줄: 네모 견본 하나와 그 색 이름(누르면 바탕색 바꾸기). */
+  .c-bg-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .c-bg-swatch { flex: none; width: 26px; height: 26px; border-radius: 7px; background-image: none; }
+  .c-bg-name { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
   .c-add-swatch {
     background: #fff;
     background-image: none;
@@ -776,9 +785,9 @@
   @media (min-width: 860px) {
     :root[data-concept="cat"] main,
     :root[data-concept="cat"] .bottom-bar-inner { max-width: 1040px; }
-    #panel-cat:not([hidden]) { grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; }
+    #panel-cat:not([hidden]) { grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; }
     .c-work { position: sticky; top: 12px; }
-    /* 오른쪽 열(300px)에선 도구 셋과 되돌리기 둘이 한 줄에 안 들어가서
+    /* 오른쪽 열(320px)에선 도구 셋과 되돌리기 둘이 한 줄에 안 들어가서
        되돌리기·다시를 아랫줄 오른쪽으로 내립니다. */
     .c-tools { flex-wrap: wrap; }
     .c-tool-group { flex-basis: 100%; }
@@ -1109,6 +1118,10 @@
           <button type="button" data-size="2" aria-pressed="false" aria-label="2칸" title="2칸 ( [ ] 로 바꾸기 )"><span class="c-brush-dot" style="--s: 9px"></span>2</button>
           <button type="button" data-size="3" aria-pressed="false" aria-label="3칸" title="3칸 ( [ ] 로 바꾸기 )"><span class="c-brush-dot" style="--s: 12px"></span>3</button>
         </div>
+      </div>
+      <div class="c-paint-row">
+        <span class="c-paint-label">바탕</span>
+        <div class="c-bg-row" id="c-bgRow"></div>
       </div>
       <div class="c-paint-row">
         <span class="c-paint-label" id="c-paletteLabel">색</span>

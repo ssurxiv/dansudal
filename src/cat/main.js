@@ -455,27 +455,26 @@ function swatch(color, label) {
 
 /* 고를 때마다 단추를 새로 그리므로, 키보드로 고르던 중이면 같은 색
    단추에 초점을 되돌려줍니다. */
+const bgRowEl = $('bgRow');
+
 function renderPalette() {
-  const focused = paletteEl.contains(document.activeElement) ? document.activeElement.dataset.key : null;
+  const holder = [bgRowEl, paletteEl].find((el) => el.contains(document.activeElement));
+  const focused = holder ? document.activeElement.dataset.key : null;
   paletteEl.innerHTML = '';
+  bgRowEl.innerHTML = '';
   const pickingBg = editorTarget === 'bg';
 
-  const bgWrap = document.createElement('span');
-  bgWrap.className = 'c-bg-wrap';
+  // 바탕 줄 — 네모 견본 하나 + 색 이름. 누르면 바탕색 고르기가 열립니다.
   const bgBtn = swatch(chart.bg, '바탕색 바꾸기');
   bgBtn.classList.add('c-bg-swatch');
   bgBtn.dataset.key = 'bg';
   bgBtn.classList.toggle('recent', pickingBg);
   bgBtn.setAttribute('aria-expanded', String(pickingBg));
   bgBtn.addEventListener('click', () => openEditor('bg'));
-  const bgLabel = document.createElement('span');
-  bgLabel.className = 'c-bg-label';
-  bgLabel.textContent = '바탕';
-  bgWrap.append(bgBtn, bgLabel);
-
-  const divider = document.createElement('span');
-  divider.className = 'stash-divider';
-  paletteEl.append(bgWrap, divider);
+  const bgName = document.createElement('span');
+  bgName.className = 'c-bg-name';
+  bgName.textContent = nameOf(chart.bg) ?? chart.bg;
+  bgRowEl.append(bgBtn, bgName);
 
   // 새 색 만들기는 첫 동그라미 — 새 색은 바로 그 옆(맨 앞)에 들어옵니다.
   const add = document.createElement('button');
@@ -498,7 +497,7 @@ function renderPalette() {
     paletteEl.append(btn);
   });
 
-  if (focused) paletteEl.querySelector(`[data-key="${focused}"]`)?.focus();
+  if (focused) (focused === 'bg' ? bgRowEl : paletteEl).querySelector(`[data-key="${focused}"]`)?.focus();
 }
 
 function selectColor(color) {
