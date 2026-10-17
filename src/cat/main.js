@@ -96,6 +96,8 @@ const ui = {
   color: normalizeHex(saved?.ui?.color) ?? chart.palette[0] ?? STASH[0].color,
   // 붓·지우개 굵기(한 변의 칸 수). 사각형은 굵기와 상관없습니다.
   brush: [1, 2, 3].includes(saved?.ui?.brush) ? saved.ui.brush : 1,
+  // 대칭(데칼코마니): 'none' | 'x' 좌우 | 'y' 상하 | 'xy' 상하좌우.
+  mirror: ['none', 'x', 'y', 'xy'].includes(saved?.ui?.mirror) ? saved.ui.mirror : 'none',
   // 다 뜬 뒤의 자세: 'showoff'(양탄자를 들어 자랑) | 'rug'(깔고 앉기).
   // 단수달·코토키처럼 다 뜨면 먼저 자랑부터 합니다.
   finishPose: saved?.ui?.finishPose === 'rug' ? 'rug' : 'showoff'
@@ -237,8 +239,10 @@ function renderChart() {
     view.layout(chart, avail, availH);
     laidOutFor = key;
   }
-  const hoverBox = ui.view === 'edit' && hover ? (ui.tool === 'rect' ? footprint(hover, 1) : footprint(hover)) : null;
-  view.draw(chart, { mode: ui.view, preview, hover: hoverBox, colors: themeColors() });
+  const hoverBoxes = ui.view === 'edit' && hover
+    ? mirrorBoxes(ui.tool === 'rect' ? footprint(hover, 1) : footprint(hover))
+    : null;
+  view.draw(chart, { mode: ui.view, preview, hover: hoverBoxes, mirror: ui.mirror, colors: themeColors() });
 }
 new ResizeObserver(renderChart).observe(chartWrap);
 window.addEventListener('resize', renderChart);
@@ -274,9 +278,27 @@ function footprint(cell, size = ui.brush) {
   const y1 = Math.min(chart.height - 1, cell.y - off + size - 1);
   return { x0, y0, x1, y1 };
 }
-function paintFootprint(cell, color) {
-  const { x0, y0, x1, y1 } = footprint(cell);
+/* 대칭(데칼코마니) — 상자 하나를 도안 한가운데 축으로 뒤집은 자리들까지.
+   축 위에 걸친 상자는 자기 자신과 겹쳐도 그냥 두 번 칠할 뿐이라 상관없습니다. */
+function mirrorBoxes(box) {
+  const W = chart.width - 1;
+  const H = chart.height - 1;
+  const flipX = (b) => ({ ...b, x0: W - b.x1, x1: W - b.x0 });
+  const flipY = (b) => ({ ...b, y0: H - b.y1, y1: H - b.y0 });
+  const out = [box];
+  if (ui.mirror === 'x' || ui.mirror === 'xy') out.push(flipX(box));
+  if (ui.mirror === 'y' || ui.mirror === 'xy') out.push(flipY(box));
+  if (ui.mirror === 'xy') out.push(flipX(flipY(box)));
+  return out;
+}
+const boxOf = (a, b) => ({
+  x0: Math.min(a.x, b.x), x1: Math.max(a.x, b.x), y0: Math.min(a.y, b.y), y1: Math.max(a.y, b.y)
+});
+function paintBox({ x0, y0, x1, y1 }, color) {
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) chart.paint(x, y, color);
+}
+function paintFootprint(cell, color) {
+  mirrorBoxes(footprint(cell)).forEach((box) => paintBox(box, color));
 }
 
 /* 그리기 화면에선 커서 아래 칸(붓 굵기만큼)에 테두리를 둘러, 누르기 전에
@@ -322,7 +344,7 @@ chartCanvas.addEventListener('pointerdown', (e) => {
   chartCanvas.setPointerCapture(e.pointerId);
   if (ui.tool === 'rect') {
     drag = { tool: 'rect', start: cell, end: cell };
-    preview = { x0: cell.x, y0: cell.y, x1: cell.x, y1: cell.y, color: ui.color };
+    preview = { boxes: mirrorBoxes(boxOf(cell, cell)), color: ui.color };
     kitty.play('hold');
   } else {
     const color = ui.tool === 'erase' ? null : ui.color;
@@ -341,8 +363,7 @@ chartCanvas.addEventListener('pointermove', (e) => {
   if (drag.tool === 'rect') {
     if (cell.x === drag.end.x && cell.y === drag.end.y) return;
     drag.end = cell;
-    preview.x1 = cell.x;
-    preview.y1 = cell.y;
+    preview.boxes = mirrorBoxes(boxOf(drag.start, cell));
   } else {
     if (cell.x === drag.last.x && cell.y === drag.last.y) return;
     cellsBetween(drag.last, cell).forEach((c) => paintFootprint(c, drag.color));
@@ -365,7 +386,12 @@ function endDrag(e, cancelled) {
   let changed;
   if (d.tool === 'rect') {
     preview = null;
-    changed = !cancelled && chart.fillRect(d.start.x, d.start.y, d.end.x, d.end.y, ui.color);
+    if (!cancelled) {
+      // 사각형과 그 거울 자리들을 한 번의 되돌리기로 묶습니다.
+      chart.beginStroke();
+      mirrorBoxes(boxOf(d.start, d.end)).forEach((box) => paintBox(box, ui.color));
+    }
+    changed = !cancelled && chart.endStroke();
     if (changed) say(pick(LINES.rect));
   } else {
     changed = chart.endStroke();
@@ -403,6 +429,24 @@ function setBrush(size) {
 }
 panel.querySelectorAll('#c-brush button').forEach((btn) => {
   btn.addEventListener('click', () => setBrush(Number(btn.dataset.size)));
+});
+
+const MIRRORS = ['none', 'x', 'y', 'xy'];
+const MIRROR_LINES = {
+  none: '대칭 끔.',
+  x: '좌우 대칭. 한쪽만 칠하면 돼.',
+  y: '상하 대칭. 위아래가 같이 칠해져.',
+  xy: '상하좌우 대칭. 한 번에 네 군데.'
+};
+function setMirror(mode) {
+  if (mode === ui.mirror) return;
+  ui.mirror = mode;
+  say(MIRROR_LINES[mode]);
+  persist();
+  refresh();
+}
+panel.querySelectorAll('#c-mirror button').forEach((btn) => {
+  btn.addEventListener('click', () => setMirror(btn.dataset.mirror));
 });
 
 function undo() {
@@ -636,11 +680,11 @@ function applySize() {
   const h = parseInt(heightInput.value, 10);
   const ok = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
   if (!ok(w, LIMITS.minW, LIMITS.maxW) || !ok(h, LIMITS.minH, LIMITS.maxH)) {
-    say(`가로는 ${LIMITS.minW}~${LIMITS.maxW}코, 세로는 ${LIMITS.minH}~${LIMITS.maxH}단까지 돼.`);
+    say(`가로는 ${LIMITS.minW}~${LIMITS.maxW}칸, 세로는 ${LIMITS.minH}~${LIMITS.maxH}칸까지 돼.`);
     return;
   }
   if (chart.resize(w, h)) {
-    say(`${w}코 × ${h}단. 잘린 칸은 되돌리기로 살릴 수 있어.`);
+    say(`${w}칸 × ${h}칸. 잘린 칸은 되돌리기로 살릴 수 있어.`);
     persist();
   }
   refresh();
@@ -793,6 +837,9 @@ function refresh() {
   $('toolBrush').setAttribute('aria-pressed', String(ui.tool === 'brush'));
   $('toolRect').setAttribute('aria-pressed', String(ui.tool === 'rect'));
   $('toolErase').setAttribute('aria-pressed', String(ui.tool === 'erase'));
+  panel.querySelectorAll('#c-mirror button').forEach((btn) => {
+    btn.setAttribute('aria-pressed', String(btn.dataset.mirror === ui.mirror));
+  });
   // 사각형엔 굵기가 없으니 굵기 단추를 잠급니다.
   panel.querySelectorAll('#c-brush button').forEach((btn) => {
     btn.setAttribute('aria-pressed', String(Number(btn.dataset.size) === ui.brush));
@@ -842,6 +889,7 @@ document.addEventListener('keydown', (e) => {
     else if (e.code === 'KeyE') setTool('erase');
     else if (e.code === 'BracketLeft') setBrush(ui.brush - 1);
     else if (e.code === 'BracketRight') setBrush(ui.brush + 1);
+    else if (e.code === 'KeyM') setMirror(MIRRORS[(MIRRORS.indexOf(ui.mirror) + 1) % MIRRORS.length]);
     return;
   }
   if (e.code === 'Space') { e.preventDefault(); knit('nextRun'); }

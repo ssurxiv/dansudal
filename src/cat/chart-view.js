@@ -106,13 +106,14 @@ export class ChartView {
    * @param {import('./chart.js').Chart} chart
    * @param {object} opts
    * @param {'edit'|'knit'} opts.mode
-   * @param {{x0:number,y0:number,x1:number,y1:number,color:string|null}|null} [opts.preview]
-   *   사각형 채우기를 끌고 있는 동안의 미리보기
-   * @param {{x0:number,y0:number,x1:number,y1:number}|null} [opts.hover]
-   *   그리기 화면에서 커서 아래(붓 굵기만큼) 칸들
+   * @param {{boxes:{x0:number,y0:number,x1:number,y1:number}[], color:string}|null} [opts.preview]
+   *   사각형 채우기를 끌고 있는 동안의 미리보기(대칭이면 상자가 여럿)
+   * @param {{x0:number,y0:number,x1:number,y1:number}[]|null} [opts.hover]
+   *   그리기 화면에서 커서 아래(붓 굵기만큼) 칸들 — 대칭이면 거울 자리까지
+   * @param {'none'|'x'|'y'|'xy'} [opts.mirror] 그리기 화면에서 대칭 축을 점선으로
    * @param {{ink:string, muted:string, accent:string, veil:string}} opts.colors
    */
-  draw(chart, { mode, preview = null, hover = null, colors }) {
+  draw(chart, { mode, preview = null, hover = null, mirror = 'none', colors }) {
     const { ctx, cell, label } = this;
     const W = chart.width;
     const H = chart.height;
@@ -124,11 +125,8 @@ export class ChartView {
 
     // 바탕을 한 번에 깔고 칠한 칸을 채운 뒤, 정해진 몇 칸에만 발도장을
     // 찍습니다. 사각형을 끌고 있는 동안엔 그 안을 칠해질 색으로 미리 보여줍니다.
-    const box = preview && {
-      x0: Math.min(preview.x0, preview.x1), x1: Math.max(preview.x0, preview.x1),
-      y0: Math.min(preview.y0, preview.y1), y1: Math.max(preview.y0, preview.y1)
-    };
-    const inBox = (x, y) => box && x >= box.x0 && x <= box.x1 && y >= box.y0 && y <= box.y1;
+    const boxes = preview?.boxes ?? [];
+    const inBox = (x, y) => boxes.some((b) => x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1);
     ctx.fillStyle = chart.bg;
     ctx.fillRect(cx(0), cy(0), W * cell, H * cell);
     for (let y = 0; y < H; y++) {
@@ -142,14 +140,13 @@ export class ChartView {
     }
 
     // 사각형 미리보기 테두리
-    if (box) {
-      const { x0, x1, y0, y1 } = box;
+    boxes.forEach(({ x0, x1, y0, y1 }) => {
       ctx.setLineDash([4, 3]);
       ctx.lineWidth = 2;
       ctx.strokeStyle = colors.ink;
       ctx.strokeRect(cx(x0) + 1, cy(y0) + 1, (x1 - x0 + 1) * cell - 2, (y1 - y0 + 1) * cell - 2);
       ctx.setLineDash([]);
-    }
+    });
 
     // 뜨기 화면: 아직 안 뜬 칸은 흐리게 — 뜬 칸만 원래 색으로 진합니다.
     const p = chart.progress;
@@ -192,13 +189,35 @@ export class ChartView {
     ctx.strokeStyle = colors.ink;
     ctx.strokeRect(cx(0) - 0.75, cy(0) - 0.75, W * cell + 1.5, H * cell + 1.5);
 
+    // 그리기 화면 대칭 축 — 도안 한가운데에 강조색 점선. 칸 수가 홀수면
+    // 가운데 칸 한복판을 지나고, 그 칸은 자기 자신의 거울입니다.
+    if (mode === 'edit' && mirror !== 'none') {
+      ctx.save();
+      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = colors.accent;
+      ctx.beginPath();
+      if (mirror === 'x' || mirror === 'xy') {
+        const ax = cx(0) + (W * cell) / 2;
+        ctx.moveTo(ax, cy(0) - 4);
+        ctx.lineTo(ax, cy(H) + 4);
+      }
+      if (mirror === 'y' || mirror === 'xy') {
+        const ay = cy(0) + (H * cell) / 2;
+        ctx.moveTo(cx(0) - 4, ay);
+        ctx.lineTo(cx(W) + 4, ay);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
     // 그리기 화면: 커서 아래 칸들(붓 굵기만큼) — 어두운 테두리 안에 흰
     // 테두리를 한 겹 더 둘러 칸 색이 밝든 어둡든 보이게 합니다.
-    if (hover) {
-      const hx = cx(hover.x0);
-      const hy = cy(hover.y0);
-      const hw = (hover.x1 - hover.x0 + 1) * cell;
-      const hh = (hover.y1 - hover.y0 + 1) * cell;
+    (hover ?? []).forEach((h) => {
+      const hx = cx(h.x0);
+      const hy = cy(h.y0);
+      const hw = (h.x1 - h.x0 + 1) * cell;
+      const hh = (h.y1 - h.y0 + 1) * cell;
       ctx.lineWidth = 2;
       ctx.strokeStyle = colors.ink;
       ctx.strokeRect(hx + 1, hy + 1, hw - 2, hh - 2);
@@ -207,7 +226,7 @@ export class ChartView {
         ctx.strokeStyle = '#ffffff';
         ctx.strokeRect(hx + 2.5, hy + 2.5, hw - 5, hh - 5);
       }
-    }
+    });
 
     // 뜨기 화면: 지금 단(강조색)과 지금 구간(진하게)
     if (mode === 'knit' && working) {
