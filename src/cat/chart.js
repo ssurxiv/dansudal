@@ -136,24 +136,34 @@ export class Chart {
     return true;
   }
 
-  /** 모든 칸을 바탕으로. 이것도 되돌리기로 살아납니다. */
+  get started() { return this.progress.rows > 0 || this.progress.runs > 0; }
+
+  /**
+   * 새 도안 — 모든 칸을 바탕으로 비우고 뜬 기록도 처음으로 돌립니다(다른
+   * 도안을 뜨는 거라 이전 진행은 의미가 없습니다). 되돌리기 한 번이면
+   * 칠한 칸과 진행이 같이 살아납니다.
+   */
   clear() {
-    if (!this.painted) return false;
-    const before = this.snapshot();
+    if (!this.painted && !this.started) return false;
+    const before = this.snapshot({ progress: true });
     this.cells = new Array(this.width * this.height).fill(null);
-    this.pushHistory({ type: 'snapshot', before, after: this.snapshot() });
-    this.clampProgress();
+    this.progress = { rows: 0, runs: 0 };
+    this.pushHistory({ type: 'snapshot', before, after: this.snapshot({ progress: true }) });
     return true;
   }
 
-  snapshot() {
-    return { width: this.width, height: this.height, cells: [...this.cells] };
+  /** progress 를 담으면 되돌릴 때 진행도 같이 돌아갑니다(새 도안). */
+  snapshot({ progress = false } = {}) {
+    const s = { width: this.width, height: this.height, cells: [...this.cells] };
+    if (progress) s.progress = { ...this.progress };
+    return s;
   }
 
   applySnapshot(s) {
     this.width = s.width;
     this.height = s.height;
     this.cells = [...s.cells];
+    if (s.progress) this.progress = { ...s.progress };
   }
 
   pushHistory(entry) {

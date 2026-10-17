@@ -602,8 +602,8 @@ $('resize').addEventListener('click', applySize);
 });
 
 $('clear').addEventListener('click', () => {
-  if (!chart.painted) { say('이미 하얘.'); return; }
-  if (!window.confirm('칠한 칸을 모두 지울까요? 되돌리기로 다시 살릴 수 있어요.')) return;
+  if (!chart.painted && !chart.started) { say('이미 하얘.'); return; }
+  if (!window.confirm('새 도안을 시작할까요? 칠한 칸과 뜬 기록이 모두 지워져요. 되돌리기로 다시 살릴 수 있어요.')) return;
   chart.clear();
   kitty.play('huff');
   say('새 도안이야. …하얗네.');
@@ -676,7 +676,7 @@ $('showoff').addEventListener('click', () => {
 });
 
 $('restart').addEventListener('click', () => {
-  if (chart.progress.rows === 0 && chart.progress.runs === 0) { say('아직 하나도 안 떴어.'); return; }
+  if (!chart.started) { say('아직 하나도 안 떴어.'); return; }
   if (!window.confirm('뜬 기록을 처음으로 되돌릴까요? 도안은 그대로예요.')) return;
   chart.resetProgress();
   kitty.weave(loomState(), 'back');
@@ -751,7 +751,7 @@ function refresh() {
   panel.querySelectorAll('input[name="c-style"]').forEach((radio) => {
     radio.checked = radio.value === chart.style;
   });
-  const started = chart.progress.rows > 0 || chart.progress.runs > 0;
+  const started = chart.started;
   $('nextRun').disabled = chart.complete;
   $('nextRow').disabled = chart.complete;
   const showoffBtn = $('showoff');
