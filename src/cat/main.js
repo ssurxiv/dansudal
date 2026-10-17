@@ -445,8 +445,15 @@ function setMirror(mode) {
   persist();
   refresh();
 }
+/* 좌우·상하는 따로 켜고 끕니다. 둘 다 켜면 상하좌우(네 군데). */
+const hasAxis = (mode, axis) => mode === axis || mode === 'xy';
+function toggleAxis(axis) {
+  const x = axis === 'x' ? !hasAxis(ui.mirror, 'x') : hasAxis(ui.mirror, 'x');
+  const y = axis === 'y' ? !hasAxis(ui.mirror, 'y') : hasAxis(ui.mirror, 'y');
+  setMirror(x && y ? 'xy' : x ? 'x' : y ? 'y' : 'none');
+}
 panel.querySelectorAll('#c-mirror button').forEach((btn) => {
-  btn.addEventListener('click', () => setMirror(btn.dataset.mirror));
+  btn.addEventListener('click', () => toggleAxis(btn.dataset.axis));
 });
 
 function undo() {
@@ -838,7 +845,7 @@ function refresh() {
   $('toolRect').setAttribute('aria-pressed', String(ui.tool === 'rect'));
   $('toolErase').setAttribute('aria-pressed', String(ui.tool === 'erase'));
   panel.querySelectorAll('#c-mirror button').forEach((btn) => {
-    btn.setAttribute('aria-pressed', String(btn.dataset.mirror === ui.mirror));
+    btn.setAttribute('aria-pressed', String(hasAxis(ui.mirror, btn.dataset.axis)));
   });
   // 사각형엔 굵기가 없으니 굵기 단추를 잠급니다.
   panel.querySelectorAll('#c-brush button').forEach((btn) => {
