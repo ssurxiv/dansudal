@@ -42,7 +42,9 @@ const LINES = {
   undo: ['없던 걸로 할게.', '되돌렸어.'],
   redo: ['다시 칠했어.'],
   back: ['흥, 풀었어?', '다시 뜨면 되지.', '…괜찮아, 풀어.'],
-  done: ['양탄자 완성. …여긴 이제 내 자리야.', '다 떴다. …폭신하네.']
+  done: ['다 떴다. 봐, 예쁘지?', '완성. …나 잘했지?'],
+  showoff: ['봐. 내가 다 짚었어.', '예쁘지? …당연하지.', '흥, 이 정도는 해.', '자랑 좀 할게.'],
+  rug: ['…여긴 이제 내 자리야.', '폭신하네.', '여기 앉아 있을래.']
 };
 const pick = (lines) => lines[Math.floor(Math.random() * lines.length)];
 
@@ -85,7 +87,10 @@ if (saved?.chart) chart.restore(saved.chart);
 const ui = {
   view: saved?.ui?.view === 'knit' ? 'knit' : 'edit',
   tool: ['brush', 'rect', 'erase'].includes(saved?.ui?.tool) ? saved.ui.tool : 'brush',
-  color: normalizeHex(saved?.ui?.color) ?? chart.palette[0] ?? STASH[0].color
+  color: normalizeHex(saved?.ui?.color) ?? chart.palette[0] ?? STASH[0].color,
+  // 다 뜬 뒤의 자세: 'showoff'(양탄자를 들어 자랑) | 'rug'(깔고 앉기).
+  // 단수달·코토키처럼 다 뜨면 먼저 자랑부터 합니다.
+  finishPose: saved?.ui?.finishPose === 'rug' ? 'rug' : 'showoff'
 };
 
 let saveTimer = null;
@@ -142,7 +147,7 @@ function sampleRug(u0, u1, v0, v1) {
 }
 
 function syncKitty() {
-  kitty.setResting(chart.complete ? 'rug' : 'idle');
+  kitty.setResting(chart.complete ? ui.finishPose : 'idle');
   kitty.setPaint(ui.tool === 'erase' ? null : ui.color);
   kitty.setRug(chart.progress.rows > 0
     ? { sample: sampleRug, fraction: chart.fraction, fringe: mix(chart.bg, RUG.edge, 0.35) }
@@ -604,8 +609,10 @@ function knit(action, cell) {
     return;
   }
   const backward = progressIndex() < before;
+  const justFinished = chart.complete && !wasComplete;
+  if (justFinished) ui.finishPose = 'showoff';
   syncKitty();
-  if (chart.complete && !wasComplete) {
+  if (justFinished) {
     kitty.play('complete');
     say(pick(LINES.done));
   } else if (backward) {
@@ -632,6 +639,16 @@ panel.querySelectorAll('input[name="c-style"]').forEach((radio) => {
     persist();
     refresh();
   });
+});
+
+/* 자랑하기 ↔ 깔고 앉기 (단수달의 입어보기·벗기 자리). */
+$('showoff').addEventListener('click', () => {
+  if (!chart.complete) return;
+  ui.finishPose = ui.finishPose === 'showoff' ? 'rug' : 'showoff';
+  syncKitty();
+  say(pick(LINES[ui.finishPose]));
+  persist();
+  refresh();
 });
 
 $('restart').addEventListener('click', () => {
@@ -684,7 +701,7 @@ function setView(next) {
   ui.view = next;
   persist();
   refresh();
-  if (next === 'knit') say(...(chart.complete ? ['다 떴어. …여긴 내 자리야.'] : ['지금 ', ...positionParts()]));
+  if (next === 'knit') say(...(chart.complete ? [pick(LINES[ui.finishPose])] : ['지금 ', ...positionParts()]));
   else say('도안 그리기. 칠할 색을 골라.');
 }
 $('modeEdit').addEventListener('click', () => setView('edit'));
@@ -716,6 +733,10 @@ function refresh() {
   const started = chart.progress.rows > 0 || chart.progress.runs > 0;
   $('nextRun').disabled = chart.complete;
   $('nextRow').disabled = chart.complete;
+  const showoffBtn = $('showoff');
+  // 버튼만 숨기면 감싼 줄의 여백이 남아서 줄째로 숨깁니다.
+  showoffBtn.parentElement.hidden = !chart.complete;
+  showoffBtn.textContent = ui.finishPose === 'showoff' ? '🧶 깔고 앉기' : '✨ 자랑하기';
   $('backRun').disabled = !started;
   $('backRow').disabled = !started;
   renderReading();
@@ -753,5 +774,5 @@ document.addEventListener('keydown', (e) => {
 
 refresh();
 kitty.play(kitty.resting);
-say(chart.complete ? '…여긴 내 자리야.' : pick(LINES.greet));
+say(chart.complete ? pick(LINES[ui.finishPose]) : pick(LINES.greet));
 kitty.start();

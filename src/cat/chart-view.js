@@ -9,8 +9,10 @@
  *     오른쪽, 안면 단은 왼쪽 — 번호만 봐도 지그재그 방향이 보입니다).
  *   - 코 번호는 오른쪽 끝이 1코입니다.
  *   - 5칸마다 조금 진하게, 10칸마다 굵게 선을 긋습니다(오른쪽·아래 기준).
- * 칠한 칸은 네모를 꽉 채우지 않고 그 색의 발도장으로 찍습니다(카냥이가
- * 젤리로 찍는 컨셉). 칸이 너무 작아 발도장이 뭉개지면 네모로 채웁니다.
+ * 칠한 칸은 네모로 꽉 채우고, 그중 몇 칸에만 같은 색 계열로 발도장이
+ * 찍혀 있습니다(카냥이가 젤리로 찍은 자국). 처음엔 모든 칸을 발도장으로
+ * 찍었는데, 칸이 많아지면 작은 무늬가 빼곡히 반복돼 징그럽다는 반응이
+ * 있었습니다. 칸이 너무 작으면 발도장은 생략합니다.
  * 뜨기 화면에서는 아직 안 뜬 칸을 흐리게 덮어서, 뜰수록 원래 색이
  * 진하게 채워집니다(실제로 뜨면 그 칸이 생기는 것처럼). 다 뜬 단 끝엔
  * 발도장을 찍고, 지금 단과 지금 구간을 테두리로 짚어줍니다. 도안
@@ -23,7 +25,31 @@ const TOP = 6;
 const BOTTOM = 18;
 const MIN_CELL = 6;
 const MAX_CELL = 28;
-const MIN_PAW_CELL = 10; // 이보다 작은 칸은 발도장 대신 네모로
+const MIN_PAW_CELL = 10; // 이보다 작은 칸엔 발도장을 안 찍습니다
+const PAW_SHARE = 0.12;   // 칠한 칸 중 발도장이 찍힌 칸의 비율(대략)
+
+/* 칸 자리마다 늘 같은 값이 나오는 의사난수(0~1). 다시 그릴 때마다
+   발도장 자리가 바뀌면 화면이 지글거리니 자리로만 정합니다. */
+function hash01(x, y) {
+  let h = Math.imul(x + 1, 374761393) + Math.imul(y + 1, 668265263);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+const hasPaw = (x, y) => hash01(x, y) < PAW_SHARE;
+
+/* 발도장 색 — 칸 색보다 살짝 진하게(어두운 칸이면 살짝 밝게). 칸과 전혀
+   다른 색이면 도안의 색처럼 읽혀서, 같은 색의 자국으로만 보이게 합니다. */
+const toneCache = new Map();
+function pawTone(hex) {
+  if (!toneCache.has(hex)) {
+    const ch = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const lum = (0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]) / 255;
+    // 남색처럼 중간보다 어두운 칸은 더 어둡게 찍으면 거의 안 보여서 밝게 찍습니다.
+    const [target, t] = lum < 0.42 ? [255, 0.26] : [0, 0.2];
+    toneCache.set(hex, `#${ch.map((c) => Math.round(c + (target - c) * t).toString(16).padStart(2, '0')).join('')}`);
+  }
+  return toneCache.get(hex);
+}
 
 export class ChartView {
   constructor(canvas) {
@@ -94,8 +120,8 @@ export class ChartView {
     const cy = (y) => top + y * cell;
     ctx.clearRect(0, 0, this.cssW, this.cssH);
 
-    // 바탕을 한 번에 깔고, 칠한 칸마다 그 색 발도장을 찍습니다. 사각형을
-    // 끌고 있는 동안엔 그 안을 칠해질 색으로 미리 찍어 보여줍니다.
+    // 바탕을 한 번에 깔고 칠한 칸을 채운 뒤, 정해진 몇 칸에만 발도장을
+    // 찍습니다. 사각형을 끌고 있는 동안엔 그 안을 칠해질 색으로 미리 보여줍니다.
     const box = preview && {
       x0: Math.min(preview.x0, preview.x1), x1: Math.max(preview.x0, preview.x1),
       y0: Math.min(preview.y0, preview.y1), y1: Math.max(preview.y0, preview.y1)
@@ -107,12 +133,9 @@ export class ChartView {
       for (let x = 0; x < W; x++) {
         const color = inBox(x, y) ? preview.color : chart.cellAt(x, y);
         if (color === null || color === chart.bg) continue;
-        if (cell >= MIN_PAW_CELL) {
-          stampPaw(ctx, cx(x), cy(y), cell, color);
-        } else {
-          ctx.fillStyle = color;
-          ctx.fillRect(cx(x), cy(y), cell, cell);
-        }
+        ctx.fillStyle = color;
+        ctx.fillRect(cx(x), cy(y), cell, cell);
+        if (cell >= MIN_PAW_CELL && hasPaw(x, y)) stampPaw(ctx, cx(x), cy(y), cell, pawTone(color));
       }
     }
 

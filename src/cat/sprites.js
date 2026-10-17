@@ -353,3 +353,46 @@ export function rugPixels(sample, fraction, fringe) {
   for (let x = fl + 1; x <= mirror(fl) - 1; x += 2) px.push([x, RUG.front + 1, fringe]);
   return px;
 }
+
+/* ── 자랑하기: 다 뜬 양탄자를 들어 보이기 ─────────────────── */
+/* 단수달·코토키가 완성품을 들어 보이듯, 카냥이는 다 뜬 양탄자를 턱밑에
+   펼쳐 들어 무늬를 보여줍니다. 바닥에 깐 양탄자(앞이 넓은 사다리꼴, 뒤는
+   몸에 가림)보다 훨씬 크고 반듯해서 도안이 제대로 보입니다. 맨 윗줄
+   (y24)은 턱(y23) 바로 아래라 위쪽 술은 달지 않습니다 — 달면 턱 윤곽선을
+   덮습니다. */
+export const HELD_RUG = { left: 6, right: 26, top: 24, bottom: 37 };
+
+/**
+ * @param {(u0:number, u1:number, v0:number, v1:number) => string} sample  rugPixels 와 같은 약속
+ *   (v 는 아래(1단) 0 → 위(맨 윗단) 1)
+ * @param {string} fringe  술 색
+ * @param {number} dy      들썩임(0 또는 1)
+ */
+export function heldRugPixels(sample, fringe, dy = 0) {
+  const { left, right, top, bottom } = HELD_RUG;
+  const innerW = right - left - 1;
+  const innerH = bottom - top - 1;
+  const px = [];
+  for (let y = top; y <= bottom; y++) {
+    for (let x = left; x <= right; x++) {
+      if (y === top || y === bottom || x === left || x === right) {
+        px.push([x, y + dy, RUG.edge]);
+      } else {
+        const u0 = (x - left - 1) / innerW;
+        const v0 = (bottom - 1 - y) / innerH;
+        px.push([x, y + dy, sample(u0, u0 + 1 / innerW, v0, v0 + 1 / innerH)]);
+      }
+    }
+  }
+  for (let x = left + 1; x <= right - 1; x += 2) px.push([x, bottom + 1 + dy, fringe]);
+  return px;
+}
+
+/* 양탄자 위쪽 두 모서리를 잡은 앞발(앉은 발과 같은 4×3 모양). 좌우 합이
+   32 라 가운데 열 기준 대칭입니다. */
+export function holdingPaws(dy = 0) {
+  const buf = buffer();
+  restPaw(buf, [HELD_RUG.left - 2, HELD_RUG.top + dy]);
+  restPaw(buf, [HELD_RUG.right - 1, HELD_RUG.top + dy]);
+  return padC(buf);
+}

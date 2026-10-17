@@ -24,6 +24,7 @@ import * as K from './sprites.js';
  *   blink    true 면 가끔 눈을 깜빡입니다
  *   wag      true 면 꼬리를 흔듭니다
  *   spark    (frame) => 반짝임 스프라이트 | null
+ *   held     true 면 바닥 양탄자 대신 다 뜬 양탄자를 들어 보입니다
  */
 const STATES = {
   idle: { face: 'neutral', frames: null, frameMs: 200, blink: true },
@@ -44,20 +45,24 @@ const STATES = {
   /* 진행 체크 — 젤리로 칸을 톡. */
   tap: { face: 'neutral', paw: (f) => (f < 1 ? 'up' : null), pink: true, frames: 3, frameMs: 120, next: 'rest' },
 
-  /* 마지막 단 — 반짝임이 모였다가 한 번에 터지고 양탄자로 넘어갑니다. */
+  /* 마지막 단 — 반짝임이 모였다가 한 번에 터지고, 쉬는 자세(보통은
+     자랑하기)로 넘어갑니다. */
   complete: {
     face: 'proud',
     frames: 8,
     frameMs: 150,
     spark: (f) => (f === 3 ? K.sparkleBurst() : K.sparkles(f)),
-    next: 'rug'
+    next: 'rest'
   },
+
+  /* 자랑하기 — 다 뜬 양탄자를 펼쳐 들고 반짝임 속에서 살짝 들썩입니다. */
+  showoff: { face: 'proud', frames: null, frameMs: 240, wag: true, held: true, spark: (f) => K.sparkles(f) },
 
   /* 다 뜬 양탄자 위 — 지그시 눈을 감고 꼬리를 흔듭니다. */
   rug: { face: 'proud', frames: null, frameMs: 260, wag: true }
 };
 
-const RESTING = new Set(['idle', 'rug']);
+const RESTING = new Set(['idle', 'rug', 'showoff']);
 const HOLDING = new Set(['hold', 'wipe']);
 const BLINK_EVERY = 3600;
 const BLINK_MS = 140;
@@ -97,7 +102,7 @@ export class Kitty {
     if (this.state === 'hold') this.render();
   }
 
-  /** { sample(u, v), fraction, fringe } 또는 null. */
+  /** { sample(u0, u1, v0, v1), fraction, fringe } 또는 null. */
   setRug(rug) {
     this.rug = rug;
     this.render();
@@ -154,8 +159,8 @@ export class Kitty {
     const def = STATES[this.state];
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    // 양탄자가 맨 뒤 — 고양이가 그 위에 앉습니다.
-    if (this.rug) {
+    // 양탄자가 맨 뒤 — 고양이가 그 위에 앉습니다. 들어 보이는 동안엔 바닥에 없습니다.
+    if (this.rug && !def.held) {
       K.rugPixels(this.rug.sample, this.rug.fraction, this.rug.fringe).forEach(([x, y, color]) => {
         ctx.fillStyle = color;
         ctx.fillRect(x, y, 1, 1);
@@ -169,11 +174,21 @@ export class Kitty {
     const face = def.face === 'neutral' && this.blinking ? 'blink' : def.face;
     blit(ctx, K.heads[face], K.BODY);
 
-    const paw = def.paw?.(this.frame) ?? null;
-    blit(ctx, K.restPaws({ left: !paw }), K.BODY);
-    if (paw) {
-      const pad = def.pink ? K.BODY.f : visiblePad(this.paint);
-      blit(ctx, K.raisedPaw(paw), { ...K.BODY, f: pad });
+    if (def.held && this.rug) {
+      // 두 박자마다 한 칸 들썩 — 들고 흔들며 자랑하는 느낌.
+      const bob = this.frame % 4 < 2 ? 0 : 1;
+      K.heldRugPixels(this.rug.sample, this.rug.fringe, bob).forEach(([x, y, color]) => {
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, 1, 1);
+      });
+      blit(ctx, K.holdingPaws(bob), K.BODY);
+    } else {
+      const paw = def.paw?.(this.frame) ?? null;
+      blit(ctx, K.restPaws({ left: !paw }), K.BODY);
+      if (paw) {
+        const pad = def.pink ? K.BODY.f : visiblePad(this.paint);
+        blit(ctx, K.raisedPaw(paw), { ...K.BODY, f: pad });
+      }
     }
 
     const spark = def.spark?.(this.frame);

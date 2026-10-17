@@ -389,7 +389,7 @@
      단수달(#add)에만 걸려 있어 코토키(#r-add)와 생김새가 달랐습니다.
      어차피 버튼 줄에서 제일 왼쪽·제일 자주 누르는 자리라 강조가 없어도
      찾기 쉬워서, 나머지 버튼과 같은 모양으로 통일합니다. */
-  #wear, #r-wear { border-color: var(--yarn); color: var(--yarn); }
+  #wear, #r-wear, #c-showoff { border-color: var(--yarn); color: var(--yarn); }
   #reset, #r-reset { color: var(--muted); }
 
   input[type="number"] {
@@ -1097,6 +1097,10 @@
   </div>
 
   <div id="c-knitBottom" hidden>
+    <!-- 다 뜬 뒤에만 보입니다: 자랑하기 ↔ 깔고 앉기 -->
+    <div class="controls" hidden>
+      <button id="c-showoff" type="button">✨ 자랑하기</button>
+    </div>
     <div class="controls c-knit-controls">
       <button id="c-nextRun" type="button">🐾 한 구간 떴어요</button>
       <button id="c-nextRow" type="button">🧶 한 단 떴어요</button>
