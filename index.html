@@ -622,8 +622,20 @@
   }
 
   /* 붓 굵기 — 1·2·3칸. 점 크기로 굵기를 보여줍니다. 사각형을 고르면 잠깁니다. */
-  .c-brush { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
-  .c-brush-label { font-size: 13px; color: var(--muted); margin-right: 2px; }
+  /* 붓 카드 — 굵기·색 줄마다 왼쪽에 작은 이름표. 색 줄은 팔레트가 여러 줄로
+     접혀도 이름표가 첫 줄(단추 가운데)에 맞습니다. */
+  .c-paint {
+    display: grid;
+    gap: 10px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+  .c-paint-row { display: grid; grid-template-columns: 2.4em minmax(0, 1fr); align-items: start; gap: 6px; }
+  .c-paint-label { font-size: 13px; color: var(--muted); line-height: 30px; }
+  .c-brush { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .c-brush button {
     flex: none;
     min-width: 0;
@@ -643,7 +655,7 @@
 
   /* 색 고르기 — 실 창고와 같은 실타래 단추를 그대로 씁니다. 맨 앞은
      바탕(안 칠한 칸)이라 네모로, 맨 끝은 새 색 넣기. */
-  .c-palette { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-bottom: 10px; }
+  .c-palette { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
   .c-bg-wrap { display: inline-flex; align-items: center; gap: 4px; flex: none; }
   .c-bg-swatch { border-radius: 8px; background-image: none; }
   .c-bg-label { font-size: 12px; color: var(--muted); }
@@ -663,7 +675,6 @@
     border: 1px solid var(--line);
     border-radius: 10px;
     padding: 12px;
-    margin-bottom: 10px;
   }
   .c-editor-title { margin: 0; font-size: 13px; font-weight: 600; }
   .c-color-head { display: flex; align-items: center; gap: 10px; }
@@ -1088,13 +1099,21 @@
         <button type="button" id="c-redo" aria-label="다시 하기" title="다시 하기">↷</button>
       </div>
     </div>
-    <div class="c-brush" id="c-brush" role="group" aria-label="붓 굵기">
-      <span class="c-brush-label">굵기</span>
-      <button type="button" data-size="1" aria-pressed="true" aria-label="1칸" title="1칸 ( [ ] 로 바꾸기 )"><span class="c-brush-dot" style="--s: 6px"></span>1</button>
-      <button type="button" data-size="2" aria-pressed="false" aria-label="2칸" title="2칸 ( [ ] 로 바꾸기 )"><span class="c-brush-dot" style="--s: 9px"></span>2</button>
-      <button type="button" data-size="3" aria-pressed="false" aria-label="3칸" title="3칸 ( [ ] 로 바꾸기 )"><span class="c-brush-dot" style="--s: 12px"></span>3</button>
-    </div>
-    <div class="c-palette" id="c-palette" role="group" aria-label="칠할 색"></div>
+    <!-- 붓: 굵기와 색을 한 카드로 묶습니다(위 도구 줄은 "무엇을", 이 카드는
+         "어떻게 칠할지"). 색 만들기 편집기도 이 카드 안에서 열립니다. -->
+    <section class="c-paint" aria-label="붓 굵기와 색">
+      <div class="c-paint-row">
+        <span class="c-paint-label" id="c-brushLabel">굵기</span>
+        <div class="c-brush" id="c-brush" role="group" aria-labelledby="c-brushLabel">
+          <button type="button" data-size="1" aria-pressed="true" aria-label="1칸" title="1칸 ( [ ] 로 바꾸기 )"><span class="c-brush-dot" style="--s: 6px"></span>1</button>
+          <button type="button" data-size="2" aria-pressed="false" aria-label="2칸" title="2칸 ( [ ] 로 바꾸기 )"><span class="c-brush-dot" style="--s: 9px"></span>2</button>
+          <button type="button" data-size="3" aria-pressed="false" aria-label="3칸" title="3칸 ( [ ] 로 바꾸기 )"><span class="c-brush-dot" style="--s: 12px"></span>3</button>
+        </div>
+      </div>
+      <div class="c-paint-row">
+        <span class="c-paint-label" id="c-paletteLabel">색</span>
+        <div class="c-palette" id="c-palette" role="group" aria-labelledby="c-paletteLabel"></div>
+      </div>
     <div class="c-color-editor" id="c-colorEditor" hidden>
       <p class="c-editor-title" id="c-editorTitle">새 색 만들기</p>
       <div class="c-color-head">
@@ -1110,6 +1129,7 @@
         <button type="button" id="c-colorDone">닫기</button>
       </div>
     </div>
+    </section>
   </div>
 
   <div id="c-knitTop" class="c-reading" hidden>
