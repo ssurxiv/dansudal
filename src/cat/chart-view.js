@@ -11,8 +11,10 @@
  *   - 5칸마다 조금 진하게, 10칸마다 굵게 선을 긋습니다(오른쪽·아래 기준).
  * 칠한 칸은 네모를 꽉 채우지 않고 그 색의 발도장으로 찍습니다(카냥이가
  * 젤리로 찍는 컨셉). 칸이 너무 작아 발도장이 뭉개지면 네모로 채웁니다.
- * 뜨기 화면에서는 다 뜬 칸을 옅게 덮고, 다 뜬 단 끝에 발도장을 찍고,
- * 지금 단과 지금 구간을 테두리로 짚어줍니다.
+ * 뜨기 화면에서는 아직 안 뜬 칸을 흐리게 덮어서, 뜰수록 원래 색이
+ * 진하게 채워집니다(실제로 뜨면 그 칸이 생기는 것처럼). 다 뜬 단 끝엔
+ * 발도장을 찍고, 지금 단과 지금 구간을 테두리로 짚어줍니다. 도안
+ * 그리기 화면은 늘 원래 색 그대로입니다.
  */
 
 const LABEL_W = 22;
@@ -33,14 +35,20 @@ export class ChartView {
     this.cssH = 0;
   }
 
-  /** 담을 폭(availWidth, CSS px)에 맞춰 칸 크기를 정하고 캔버스 크기를 잡습니다. */
-  layout(chart, availWidth) {
+  /**
+   * 담을 폭·높이(CSS px)에 맞춰 칸 크기를 정하고 캔버스 크기를 잡습니다.
+   * 높이에도 맞추는 건 캐릭터와 도안 전체가 한 화면에 같이 보이게 하려는
+   * 것입니다 — 폭에만 맞췄을 땐 노트북 화면에서 도안 아래쪽이 잘려,
+   * 거기를 칠하려고 내리면 캐릭터가 화면 밖으로 나갔습니다.
+   */
+  layout(chart, availWidth, availHeight = Infinity) {
     let label = LABEL_W;
     let cell = Math.floor((availWidth - label * 2) / chart.width);
     if (cell < 10) {
       label = LABEL_W_TIGHT;
       cell = Math.floor((availWidth - label * 2) / chart.width);
     }
+    cell = Math.min(cell, Math.floor((availHeight - TOP - BOTTOM) / chart.height));
     cell = Math.max(MIN_CELL, Math.min(MAX_CELL, cell));
     this.cell = cell;
     this.label = label;
@@ -118,15 +126,18 @@ export class ChartView {
       ctx.setLineDash([]);
     }
 
-    // 뜨기 화면: 다 뜬 칸은 옅게
+    // 뜨기 화면: 아직 안 뜬 칸은 흐리게 — 뜬 칸만 원래 색으로 진합니다.
     const p = chart.progress;
     const working = chart.workingRow;
     if (mode === 'knit') {
       ctx.fillStyle = colors.veil;
-      for (let row = 1; row <= p.rows; row++) ctx.fillRect(cx(0), cy(chart.yOfRow(row)), W * cell, cell);
-      if (working) {
-        const y = chart.yOfRow(working);
-        chart.runs(working).slice(0, p.runs).forEach((run) => {
+      for (let row = p.rows + 1; row <= H; row++) {
+        const y = chart.yOfRow(row);
+        if (row !== working) {
+          ctx.fillRect(cx(0), cy(y), W * cell, cell);
+          continue;
+        }
+        chart.runs(row).slice(p.runs).forEach((run) => {
           run.xs.forEach((x) => ctx.fillRect(cx(x), cy(y), cell, cell));
         });
       }

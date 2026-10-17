@@ -164,8 +164,28 @@ function themeColors() {
     ink: v('--ink', '#2f3442'),
     muted: v('--muted', '#7b8396'),
     accent: v('--yarn', '#5f6f92'),
-    veil: 'rgba(252, 252, 253, 0.66)'
+    // 뜨기 화면에서 아직 안 뜬 칸을 덮는 색 — 원래 색이 비치되 확실히 흐리게.
+    veil: 'rgba(252, 252, 253, 0.68)'
   };
+}
+
+const avatarEl = $('stage');
+const modesEl = $('modes');
+const STICKY_TOP = 12;  // index.html 의 .c-work { top } 과 같게
+const CARD_EDGES = 22;  // 도안 카드 위아래 안쪽 여백 + 테두리
+const BREATHING = 10;
+
+/**
+ * 도안이 쓸 수 있는 높이 — 화면 높이에서 도안 카드의 머리(캐릭터, 휴대폰에선
+ * 그 아래 줄로 내려간 그리기/뜨기)를 뺀 만큼입니다. 말풍선 높이는 세지
+ * 않습니다(글이 길어질 때마다 도안 크기가 출렁이지 않게). 캐릭터 그림이
+ * 말풍선보다 늘 높아서 머리 높이는 캐릭터가 정합니다.
+ */
+function availableHeight() {
+  const avatarH = avatarEl.getBoundingClientRect().height;
+  const modesWrapped = modesEl.offsetTop > avatarEl.offsetTop + avatarH / 2;
+  const head = avatarH + (modesWrapped ? modesEl.offsetHeight + 8 : 0) + 8;
+  return Math.max(220, window.innerHeight - STICKY_TOP - CARD_EDGES - head - BREATHING);
 }
 
 /* 패널이 숨겨져 있으면(다른 탭) 폭이 0 이라 그릴 수 없습니다. 탭이
@@ -173,14 +193,33 @@ function themeColors() {
 function renderChart() {
   const avail = chartWrap.clientWidth;
   if (!avail) return;
-  const key = `${chart.width}x${chart.height}@${avail}`;
+  const availH = availableHeight();
+  const key = `${chart.width}x${chart.height}@${avail}x${availH}`;
   if (key !== laidOutFor) {
-    view.layout(chart, avail);
+    view.layout(chart, avail, availH);
     laidOutFor = key;
   }
   view.draw(chart, { mode: ui.view, preview, colors: themeColors() });
 }
 new ResizeObserver(renderChart).observe(chartWrap);
+window.addEventListener('resize', renderChart);
+
+/* 그리기 화면의 커서는 고양이 발 — 칠할 색으로 채워서, 찍힐 발도장을
+   미리 보여줍니다(지우개면 바탕색). 흰 테두리를 한 겹 더 둘러 어느 칸
+   색 위에서도 보이게 합니다. 색마다 한 번만 만듭니다. */
+const PAW_SHAPES = "<ellipse cx='14' cy='18.5' rx='6.6' ry='5.4'/>"
+  + "<circle cx='5.2' cy='11' r='2.7'/><circle cx='10.6' cy='6.2' r='2.8'/>"
+  + "<circle cx='17.4' cy='6.2' r='2.8'/><circle cx='22.8' cy='11' r='2.7'/>";
+const cursorCache = new Map();
+function pawCursor(fill) {
+  if (!cursorCache.has(fill)) {
+    const svg = "<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 28 28'>"
+      + `<g fill='#fff' stroke='#fff' stroke-width='3'>${PAW_SHAPES}</g>`
+      + `<g fill='${fill}' stroke='#2f3442' stroke-width='1.3'>${PAW_SHAPES}</g></svg>`;
+    cursorCache.set(fill, `url("data:image/svg+xml,${encodeURIComponent(svg)}") 16 16, crosshair`);
+  }
+  return cursorCache.get(fill);
+}
 
 /** 두 칸 사이를 빈틈없이 잇는 칸들(시작 칸 제외). 빠르게 끌어도 선이 끊기지 않게. */
 function cellsBetween(a, b) {
@@ -660,6 +699,7 @@ function refresh() {
   $('knitTop').hidden = edit;
   $('knitBottom').hidden = edit;
   chartCanvas.classList.toggle('knit', !edit);
+  chartCanvas.style.cursor = edit ? pawCursor(ui.tool === 'erase' ? chart.bg : ui.color) : '';
 
   $('toolBrush').setAttribute('aria-pressed', String(ui.tool === 'brush'));
   $('toolRect').setAttribute('aria-pressed', String(ui.tool === 'rect'));
