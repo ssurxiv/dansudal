@@ -243,32 +243,27 @@ function renderChart() {
 new ResizeObserver(renderChart).observe(chartWrap);
 window.addEventListener('resize', renderChart);
 
-/* 그리기 화면의 커서는 검지 하나를 세운 손 — 손가락 끝에 칠할 색 잉크가
-   묻어 있고(지우개면 깨끗한 손가락), 칠해지는 자리는 그 손가락 끝입니다.
-   일반 커서처럼 흰 손에 진한 테두리라 어느 칸 색 위에서도 보입니다.
-   처음엔 고양이 발(32px, 한가운데가 칠하는 자리)이라 칸을 덮어 정밀하게
-   칠하기 어려웠고, 발가락을 뻗은 발은 징그럽다는 반응이었습니다.
-   색마다 한 번만 만듭니다. */
-const HAND_STROKE = "stroke='#2f3442' stroke-width='1.2' stroke-linejoin='round'";
-const INDEX_FINGER = "<rect x='7.4' y='1.2' width='3.6' height='12.6' rx='1.8'";
-const HAND = `<g fill='#fff' ${HAND_STROKE}>`
-  + "<ellipse cx='6.2' cy='15.2' rx='2.7' ry='1.7' transform='rotate(38 6.2 15.2)'/>"
-  + "<rect x='7.4' y='11' width='11.6' height='10.6' rx='4'/>"
-  + "<rect x='16.6' y='10.6' width='2.9' height='5.4' rx='1.45'/>"
-  + "<rect x='13.8' y='9.2' width='3.1' height='5.8' rx='1.55'/>"
-  + "<rect x='10.8' y='8.4' width='3.2' height='6' rx='1.6'/>"
-  + `${INDEX_FINGER}/></g>`;
+/* 그리기 화면의 커서는 왼쪽 위로 쭉 뻗은 동그란 고양이 발 — 맨 앞 발가락을
+   칠할 색 잉크에 담갔다 뺀 모습이고(지우개면 깨끗한 발가락), 칠해지는
+   자리는 그 발가락 끝입니다. 끝이 커서 가장자리라 칠할 칸이 가려지지
+   않습니다. 지나온 시안: 발 한가운데가 칠하는 자리인 32px 발(칸을 덮어
+   부정확), 발가락 하나를 손가락처럼 길게 뺀 발(징그러움), 사람 손(고양이
+   느낌이 없음). 색마다 한 번만 만듭니다. */
+const PAW_LINE = "stroke='#3d4354' stroke-width='1.2'";
+const PAW_BACK = `<g fill='#eef1f6' ${PAW_LINE}>`
+  + "<circle cx='5.6' cy='10.6' r='2.6'/><circle cx='10.6' cy='5.6' r='2.6'/>"
+  + "<ellipse cx='14.2' cy='14.2' rx='6.4' ry='7.4' transform='rotate(-45 14.2 14.2)'/></g>";
+const PAW_PADS = "<ellipse cx='14.8' cy='14.8' rx='3.3' ry='2.6' transform='rotate(-45 14.8 14.8)' fill='#e79aa8'/>"
+  + "<circle cx='6.2' cy='11.2' r='1.15' fill='#e79aa8'/><circle cx='11.2' cy='6.2' r='1.15' fill='#e79aa8'/>";
 const cursorCache = new Map();
-function fingerCursor(ink) {
-  const key = ink ?? 'clean';
-  if (!cursorCache.has(key)) {
-    const tip = ink
-      ? `<path d='M7.4 6.2 V3 a1.8 1.8 0 0 1 3.6 0 V6.2 Z' fill='${ink}'/>${INDEX_FINGER} fill='none' ${HAND_STROKE}/>`
-      : '';
-    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>${HAND}${tip}</svg>`;
-    cursorCache.set(key, `url("data:image/svg+xml,${encodeURIComponent(svg)}") 9 1, crosshair`);
+function pawCursor(ink) {
+  const toe = ink ?? '#eef1f6';
+  if (!cursorCache.has(toe)) {
+    const svg = "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>"
+      + `${PAW_BACK}<circle cx='6.6' cy='6.6' r='3' fill='${toe}' ${PAW_LINE}/>${PAW_PADS}</svg>`;
+    cursorCache.set(toe, `url("data:image/svg+xml,${encodeURIComponent(svg)}") 5 5, crosshair`);
   }
-  return cursorCache.get(key);
+  return cursorCache.get(toe);
 }
 
 /* 붓 굵기만큼의 정사각형 칸들. 굵기가 홀수면 누른 칸이 가운데, 2면 누른
@@ -796,7 +791,7 @@ function refresh() {
   $('knitTop').hidden = edit || chart.complete;
   $('knitBottom').hidden = edit;
   chartCanvas.classList.toggle('knit', !edit);
-  chartCanvas.style.cursor = edit ? fingerCursor(ui.tool === 'erase' ? null : ui.color) : '';
+  chartCanvas.style.cursor = edit ? pawCursor(ui.tool === 'erase' ? null : ui.color) : '';
 
   $('toolBrush').setAttribute('aria-pressed', String(ui.tool === 'brush'));
   $('toolRect').setAttribute('aria-pressed', String(ui.tool === 'rect'));
