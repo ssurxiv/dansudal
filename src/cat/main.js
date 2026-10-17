@@ -243,25 +243,23 @@ function renderChart() {
 new ResizeObserver(renderChart).observe(chartWrap);
 window.addEventListener('resize', renderChart);
 
-/* 그리기 화면의 커서는 왼쪽 위로 쭉 뻗은 동그란 고양이 발 — 맨 앞 발가락을
-   칠할 색 잉크에 담갔다 뺀 모습이고(지우개면 깨끗한 발가락), 칠해지는
-   자리는 그 발가락 끝입니다. 끝이 커서 가장자리라 칠할 칸이 가려지지
-   않습니다. 지나온 시안: 발 한가운데가 칠하는 자리인 32px 발(칸을 덮어
-   부정확), 발가락 하나를 손가락처럼 길게 뺀 발(징그러움), 사람 손(고양이
-   느낌이 없음). 색마다 한 번만 만듭니다. */
-const PAW_LINE = "stroke='#3d4354' stroke-width='1.2'";
-const PAW_BACK = `<g fill='#eef1f6' ${PAW_LINE}>`
-  + "<circle cx='5.6' cy='10.6' r='2.6'/><circle cx='10.6' cy='5.6' r='2.6'/>"
-  + "<ellipse cx='14.2' cy='14.2' rx='6.4' ry='7.4' transform='rotate(-45 14.2 14.2)'/></g>";
-const PAW_PADS = "<ellipse cx='14.8' cy='14.8' rx='3.3' ry='2.6' transform='rotate(-45 14.8 14.8)' fill='#e79aa8'/>"
-  + "<circle cx='6.2' cy='11.2' r='1.15' fill='#e79aa8'/><circle cx='11.2' cy='6.2' r='1.15' fill='#e79aa8'/>";
+/* 그리기 화면의 커서는 고양이 발 — 발가락 넷 중 가장 왼쪽 발가락에만 칠할
+   색 물감이 묻어 있고(지우개면 깨끗), 칠해지는 자리는 그 발가락입니다.
+   흰 테두리를 한 겹 더 둘러 어느 칸 색 위에서도 보이게 합니다. 처음엔 발
+   전체를 칠할 색으로 채우고 한가운데를 칠하는 자리로 둬서(32px) 칸을 덮어
+   정밀하게 칠하기 어려웠습니다. 색마다 한 번만 만듭니다. */
+const PAW_BODY = "<ellipse cx='14' cy='18.5' rx='6.6' ry='5.4'/>"
+  + "<circle cx='10.6' cy='6.2' r='2.8'/><circle cx='17.4' cy='6.2' r='2.8'/><circle cx='22.8' cy='11' r='2.7'/>";
+const PAW_INK_TOE = "<circle cx='5.2' cy='11' r='2.7'/>";
 const cursorCache = new Map();
 function pawCursor(ink) {
-  const toe = ink ?? '#eef1f6';
+  const toe = ink ?? '#ffffff';
   if (!cursorCache.has(toe)) {
-    const svg = "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'>"
-      + `${PAW_BACK}<circle cx='6.6' cy='6.6' r='3' fill='${toe}' ${PAW_LINE}/>${PAW_PADS}</svg>`;
-    cursorCache.set(toe, `url("data:image/svg+xml,${encodeURIComponent(svg)}") 5 5, crosshair`);
+    const svg = "<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'>"
+      + `<g fill='#fff' stroke='#fff' stroke-width='3'>${PAW_BODY}${PAW_INK_TOE}</g>`
+      + `<g fill='#ffffff' stroke='#2f3442' stroke-width='1.3'>${PAW_BODY}</g>`
+      + `<g fill='${toe}' stroke='#2f3442' stroke-width='1.3'>${PAW_INK_TOE}</g></svg>`;
+    cursorCache.set(toe, `url("data:image/svg+xml,${encodeURIComponent(svg)}") 5 11, crosshair`);
   }
   return cursorCache.get(toe);
 }
